@@ -13,7 +13,7 @@ import threading
 
 # Import our components
 from app.services.metadata_parser import MetadataParser
-from app.services.reconciliation_engine import ReconciliationEngine, EntityType
+from app.services.enhanced_reconciliation_engine import EnhancedReconciliationEngine, EntityType
 from app.database import JobManager, ResultsManager
 
 # Use simple threaded processing (no Redis/Celery needed)
@@ -198,7 +198,7 @@ def process_job_with_reconciliation(job_id):
         
         # Step 2: Create reconciliation engine
         print("🔧 Initializing reconciliation engine...")
-        engine = ReconciliationEngine()
+        engine = EnhancedReconciliationEngine()
         JobManager.update_job(job_id, {'progress': 30})
         
         # Step 3: Create entities from the CSV

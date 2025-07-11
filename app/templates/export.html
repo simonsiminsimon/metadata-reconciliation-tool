@@ -263,115 +263,20 @@ textarea {
 let currentExportRequest = null;
 
 function exportCSV() {
-    showExportDemo('Enhanced CSV Export', 'csv');
+    window.location.href = "{{ url_for('download_results', job_id=job.id, format='csv') }}";
 }
 
 function exportRDF() {
-    showExportDemo('RDF/XML Export', 'rdf');
+    window.location.href = "{{ url_for('download_results', job_id=job.id, format='rdf') }}";
 }
 
-function exportJSONLD() {
-    showExportDemo('JSON-LD Export', 'jsonld');
+function exportJSON() {
+    window.location.href = "{{ url_for('download_results', job_id=job.id, format='json') }}";
 }
 
 function exportReport() {
-    showExportDemo('Reconciliation Report', 'report');
-}
-
-function exportMARC() {
-    showExportDemo('MARC Records Export', 'marc');
-}
-
-function exportCustom() {
-    showExportDemo('Custom Export', 'custom');
-}
-
-function exportAll() {
-    showExportDemo('All Formats (ZIP)', 'all');
-}
-
-function showExportDemo(title, format) {
-    // Show export modal
-    document.getElementById('export-title').textContent = `Preparing ${title}...`;
-    document.getElementById('export-status').textContent = 'Initializing...';
-    document.getElementById('export-progress').style.width = '0%';
-    document.getElementById('export-modal').style.display = 'block';
-    
-    // Simulate export process
-    let progress = 0;
-    const interval = setInterval(() => {
-        progress += Math.random() * 20;
-        if (progress >= 100) {
-            progress = 100;
-            clearInterval(interval);
-            
-            // Show completion and download
-            document.getElementById('export-status').textContent = 'Export complete!';
-            document.getElementById('export-progress').style.width = '100%';
-            
-            setTimeout(() => {
-                closeExportModal();
-                
-                // Create demo download
-                createDemoDownload(format);
-                
-                // Show success message
-                showSuccessMessage(`${title} prepared successfully! In a real application, your download would start automatically.`);
-            }, 1000);
-            
-            return;
-        }
-        
-        document.getElementById('export-progress').style.width = progress + '%';
-        
-        if (progress < 30) {
-            document.getElementById('export-status').textContent = 'Processing data...';
-        } else if (progress < 60) {
-            document.getElementById('export-status').textContent = 'Generating output...';
-        } else if (progress < 90) {
-            document.getElementById('export-status').textContent = 'Finalizing export...';
-        } else {
-            document.getElementById('export-status').textContent = 'Almost done...';
-        }
-    }, 200);
-}
-
-function createDemoDownload(format) {
-    // Create demo file content based on format
-    let content = '';
-    let filename = `{{ job.filename }}_reconciled.${format}`;
-    let mimeType = 'text/plain';
-    
-    switch(format) {
-        case 'csv':
-            content = 'entity_name,matched_uri,confidence,source\n"John Smith","http://wikidata.org/entity/Q123","high","wikidata"\n"Jane Doe","http://viaf.org/viaf/456","medium","viaf"';
-            mimeType = 'text/csv';
-            filename = `{{ job.filename }}_reconciled.csv`;
-            break;
-        case 'rdf':
-            content = '<?xml version="1.0"?>\n<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n  <!-- RDF content would be here -->\n</rdf:RDF>';
-            mimeType = 'application/rdf+xml';
-            filename = `{{ job.filename }}_reconciled.rdf`;
-            break;
-        case 'jsonld':
-            content = '{\n  "@context": "http://schema.org/",\n  "@type": "Dataset",\n  "name": "Reconciled Metadata"\n}';
-            mimeType = 'application/ld+json';
-            filename = `{{ job.filename }}_reconciled.jsonld`;
-            break;
-        default:
-            content = `Demo export file for format: ${format}\nJob: {{ job.filename }}\nGenerated: ${new Date().toISOString()}`;
-    }
-    
-    // Create and trigger download
-    const blob = new Blob([content], { type: mimeType });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    // Just navigate directly to the download URL
+    window.location.href = "{{ url_for('download_results', job_id=job.id, format='report') }}";
 }
 
 function showSuccessMessage(message) {

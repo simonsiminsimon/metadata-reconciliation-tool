@@ -14,11 +14,11 @@ def test_csv_file():
     # Find your CSV file
     csv_files = []
     for filename in os.listdir('data/input'):
-        if 'page1test.csv' in filename:
+        if 'mndigitaltest.csv' in filename:
             csv_files.append(os.path.join('data/input', filename))
     
     if not csv_files:
-        print("❌ No page1test.csv file found in data/input/")
+        print("❌ No mndigitaltest.csv file found in data/input/")
         return False
     
     csv_file = csv_files[0]  # Use the first one found
