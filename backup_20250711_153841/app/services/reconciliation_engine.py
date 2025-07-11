@@ -325,24 +325,21 @@ class ReconciliationEngine:
         self.source_mapping = {
             EntityType.PERSON: [
                 ('wikidata', self.wikidata_client.search_entities),
-                ('viaf', self.viaf_client.search_authors),
-                #('getty_ulan', self.getty_client.search_ulan_agents)  # Artists & cultural figures
+                ('viaf', self.viaf_client.search_authors)
             ],
             EntityType.AUTHOR: [
                 ('viaf', self.viaf_client.search_authors),
                 ('wikidata', self.wikidata_client.search_entities)
             ],
             EntityType.PLACE: [
-                ('wikidata', self.wikidata_client.search_entities),
-                #('getty_tgn', self.getty_client.search_tgn_places)  # Geographic names
+                ('wikidata', self.wikidata_client.search_entities)
             ],
             EntityType.SUBJECT: [
-                ('wikidata', self.wikidata_client.search_entities),
-                #('getty_aat', self.getty_client.search_aat_terms),   # Art & architecture terms
+                ('wikidata', self.wikidata_client.search_entities)
             ],
             EntityType.ORGANIZATION: [
                 ('wikidata', self.wikidata_client.search_entities),
-                #('getty_ulan', self.getty_client.search_ulan_agents)  # ADD THIS LINE
+                ('getty_ulan', self.getty_client.search_ulan_agents)  # ADD THIS LINE
             ],
         }
     

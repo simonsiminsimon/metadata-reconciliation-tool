@@ -18,7 +18,7 @@ def create_app():
     init_database()
     
     # Import and register routes
-    from app.routes.web_with_background import register_web_routes
+    from app.routes.web import register_web_routes
     from app.routes.api import register_api_routes
     
     register_web_routes(app)
