@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Review Matches - {{ job.filename }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>Review Matches: {{ job.filename }}</h1>
+    <p>Review and approve the reconciliation matches. You can approve or reject individual matches.</p>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ job.total_entities }}</div>
+            <div class="stat-label">Total Entities</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ job.successful_matches }}</div>
+            <div class="stat-label">Successful Matches</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ pagination.total }}</div>
+            <div class="stat-label">Results Shown</div>
+        </div>
+    </div>
+</div>
+
+{% for result in results %}
+<div class="entity-card">
+    <div class="entity-name">{{ result.entity.name }}</div>
+    <div class="entity-type">
+        Type: {{ result.entity.type | title }} | 
+        Confidence: <span class="badge badge-{{ 'success' if result.confidence == 'high' else 'warning' if result.confidence == 'medium' else 'danger' }}">
+            {{ result.confidence | title }}
+        </span> |
+        Sources: {{ result.sources_queried | join(', ') }}
+        {% if result.cached %} | <span class="badge badge-info">Cached</span>{% endif %}
+    </div>
+    
+    {% if result.entity.context %}
+    <div class="entity-context">
+        <strong>Context:</strong>
+        {% for key, value in result.entity.context.items() %}
+            {{ key }}: {{ value }}{% if not loop.last %}, {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    {% if result.matches %}
+        {% for match in result.matches[:5] %}
+        <div class="match-card" data-entity-id="{{ result.entity.id }}" data-match-id="{{ match.id }}">
+            <div class="match-header">
+                <div class="match-name">{{ match.name }}</div>
+                <div class="match-score">Score: {{ "%.2f" | format(match.score) }}</div>
+            </div>
+            <div class="match-source">Source: {{ match.source }} | ID: {{ match.id }}</div>
+            {% if match.description %}
+            <div class="match-description">{{ match.description }}</div>
+            {% endif %}
+            
+            {% if match.additional_info %}
+            <div style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">
+                {% for key, value in match.additional_info.items() %}
+                    {% if key not in ['uri', 'scope_note'] and value %}
+                        <span style="margin-right: 1rem;"><strong>{{ key | replace('_', ' ') | title }}:</strong> {{ value }}</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="match-actions">
+                <button class="btn btn-success approve-btn" onclick="approveMatch('{{ result.entity.id }}', '{{ match.id }}', true)">
+                    ✓ Approve
+                </button>
+                <button class="btn btn-danger reject-btn" onclick="approveMatch('{{ result.entity.id }}', '{{ match.id }}', false)">
+                    ✗ Reject
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+        
+        {% if result.matches | length > 5 %}
+        <div style="text-align: center; color: #666; font-style: italic;">
+            ... and {{ result.matches | length - 5 }} more matches
+        </div>
+        {% endif %}
+    {% else %}
+        <div class="no-matches">No matches found for this entity</div>
+    {% endif %}
+</div>
+{% endfor %}
+
+<!-- Pagination -->
+{% if pagination.pages > 1 %}
+<div class="pagination">
+    {% if pagination.has_prev %}
+        <a href="{{ url_for('review', job_id=job.id, page=pagination.prev_num) }}">&laquo; Previous</a>
+    {% endif %}
+    
+    {% for page_num in range(1, pagination.pages + 1) %}
+        {% if page_num == pagination.page %}
+            <span class="current">{{ page_num }}</span>
+        {% else %}
+            <a href="{{ url_for('review', job_id=job.id, page=page_num) }}">{{ page_num }}</a>
+        {% endif %}
+    {% endfor %}
+    
+    {% if pagination.has_next %}
+        <a href="{{ url_for('review', job_id=job.id, page=pagination.next_num) }}">Next &raquo;</a>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="card" style="text-align: center; margin-top: 2rem;">
+    <a href="{{ url_for('export_page', job_id=job.id) }}" class="btn btn-primary">Proceed to Export</a>
+    <a href="{{ url_for('processing', job_id=job.id) }}" class="btn btn-secondary">Back to Processing</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function approveMatch(entityId, matchId, approved) {
+    const matchCard = document.querySelector(`[data-entity-id="${entityId}"][data-match-id="${matchId}"]`);
+    const approveBtn = matchCard.querySelector('.approve-btn');
+    const rejectBtn = matchCard.querySelector('.reject-btn');
+    
+    // Disable buttons during request
+    approveBtn.disabled = true;
+    rejectBtn.disabled = true;
+    
+    fetch(`/api/job/{{ job.id }}/approve_match`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            entity_id: entityId,
+            match_id: matchId,
+            approved: approved
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update button states
+            if (approved) {
+                approveBtn.textContent = '✓ Approved';
+                approveBtn.className = 'btn btn-success';
+                rejectBtn.textContent = '✗ Reject';
+                rejectBtn.className = 'btn btn-secondary';
+            } else {
+                rejectBtn.textContent = '✗ Rejected';
+                rejectBtn.className = 'btn btn-danger';
+                approveBtn.textContent = '✓ Approve';
+                approveBtn.className = 'btn btn-secondary';
+            }
+            
+            // Add visual indicator
+            matchCard.style.borderLeft = approved ? '4px solid #27ae60' : '4px solid #e74c3c';
+        } else {
+            alert('Error updating match: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating match');
+    })
+    .finally(() => {
+        // Re-enable buttons
+        approveBtn.disabled = false;
+        rejectBtn.disabled = false;
+    });
+}
+function batchApproveHighConfidence() {
+   const highConfidenceMatches = document.querySelectorAll('[data-confidence="high"] .approve-btn');
+   const confirmMsg = `This will approve ${highConfidenceMatches.length} high-confidence matches. Continue?`;
+   
+   if (confirm(confirmMsg)) {
+       let processed = 0;
+       const total = highConfidenceMatches.length;
+       
+       highConfidenceMatches.forEach((btn, index) => {
+           setTimeout(() => {
+               btn.click();
+               processed++;
+               if (processed === total) {
+                   alert(`Batch approval complete: ${total} matches approved`);
+               }
+           }, index * 100); // Stagger requests to avoid overwhelming server
+       });
+   }
+}
+</script>
+{% endblock %}

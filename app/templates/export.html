@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+
+{% block title %}Export Results - {{ job.filename }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>Export Results: {{ job.filename }}</h1>
+    <p>Download your reconciled metadata in various formats.</p>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ job.total_entities }}</div>
+            <div class="stat-label">Total Entities</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ job.successful_matches }}</div>
+            <div class="stat-label">Approved Matches</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ "{:.1f}".format((job.successful_matches / job.total_entities * 100) if job.total_entities > 0 else 0) }}%</div>
+            <div class="stat-label">Match Rate</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Export Options</h2>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+        <!-- Enhanced CSV Export -->
+        <div class="export-option">
+            <h3>📊 Enhanced CSV</h3>
+            <p>Original data with additional URI and authority information columns.</p>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="include_confidence" checked> Include confidence scores
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="include_sources" checked> Include source authorities
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="include_unmatched" checked> Include unmatched entities
+                </label>
+            </div>
+            
+            <button onclick="exportCSV()" class="btn btn-primary" style="width: 100%;">
+                <a href="{{ url_for('download_results', job_id=job.id, format='csv') }}" style="color: white; text-decoration: none;">
+                    Download Enhanced CSV
+                </a>
+            </button>
+        </div>
+        
+        <!-- RDF/XML Export -->
+        <div class="export-option">
+            <h3>🔗 RDF/XML</h3>
+            <p>Linked data format for semantic web applications and repository ingestion.</p>
+            
+            <div class="form-group">
+                <label for="rdf_namespace">Namespace URI:</label>
+                <input type="text" id="rdf_namespace" value="http://example.org/metadata/" 
+                       placeholder="http://your-institution.org/metadata/">
+                <div class="form-help">Base URI for your metadata records</div>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="include_provenance" checked> Include provenance information
+                </label>
+            </div>
+            
+            <button onclick="exportRDF()" class="btn btn-primary" style="width: 100%;">
+                <a href="{{ url_for('download_results', job_id=job.id, format='rdf') }}" style="color: white; text-decoration: none;">
+                    Download RDF/XML
+                </a>
+            </button>
+        </div>
+        
+        <!-- JSON-LD Export -->
+        <div class="export-option">
+            <h3>🌐 JSON-LD</h3>
+            <p>JSON-based linked data format for web applications and APIs.</p>
+            
+            <div class="form-group">
+                <label for="jsonld_context">Context URL:</label>
+                <input type="text" id="jsonld_context" value="http://schema.org/" 
+                       placeholder="http://schema.org/">
+                <div class="form-help">JSON-LD context for semantic interpretation</div>
+            </div>
+            
+            <button onclick="exportJSONLD()" class="btn btn-primary" style="width: 100%;">
+                <a href="{{ url_for('download_results', job_id=job.id, format='json') }}" style="color: white; text-decoration: none;">
+                    Download JSON-LD
+                </a>
+            </button>
+        </div>
+        
+        <!-- Reconciliation Report -->
+        <div class="export-option">
+            <h3>📋 Reconciliation Report</h3>
+            <p>Detailed report of the reconciliation process and quality metrics.</p>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="include_statistics" checked> Include detailed statistics
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="include_failed_matches" checked> Include failed matches analysis
+                </label>
+            </div>
+            
+            <button onclick="exportReport()" class="btn btn-primary" style="width: 100%;">
+                <a href="{{ url_for('download_results', job_id=job.id, format='report') }}" style="color: white; text-decoration: none;">
+                    Download Report (TXT)
+                </a>
+            </button>
+        </div>
+        
+        <!-- MARC Records -->
+        <div class="export-option">
+            <h3>📚 MARC Records</h3>
+            <p>Library catalog format with authority control fields.</p>
+            
+            <div class="form-group">
+                <label for="marc_format">MARC Format:</label>
+                <select id="marc_format">
+                    <option value="marc21">MARC 21</option>
+                    <option value="marcxml">MARCXML</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="add_authority_fields" checked> Add authority control fields (1xx, 6xx, 7xx)
+                </label>
+            </div>
+            
+            <button onclick="exportMARC()" class="btn btn-primary" style="width: 100%;">
+                Download MARC Records
+            </button>
+        </div>
+        
+        <!-- Custom Export -->
+        <div class="export-option">
+            <h3>⚙️ Custom Export</h3>
+            <p>Configure a custom export format with specific fields and structure.</p>
+            
+            <div class="form-group">
+                <label for="custom_format">Output Format:</label>
+                <select id="custom_format">
+                    <option value="csv">CSV</option>
+                    <option value="tsv">Tab-separated</option>
+                    <option value="json">JSON</option>
+                    <option value="xml">XML</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="custom_fields">Fields to Include:</label>
+                <textarea id="custom_fields" rows="4" 
+                          placeholder="original_name,matched_uri,confidence_score,source_authority,match_description">original_name,matched_uri,confidence_score,source_authority,match_description</textarea>
+                <div class="form-help">Comma-separated list of fields to include</div>
+            </div>
+            
+            <button onclick="exportCustom()" class="btn btn-primary" style="width: 100%;">
+                Generate Custom Export
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Batch Actions</h2>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <button onclick="exportAll()" class="btn btn-secondary">
+            📦 Download All Formats (ZIP)
+        </button>
+        <a href="{{ url_for('review', job_id=job.id) }}" class="btn btn-secondary">
+            ← Back to Review
+        </a>
+        <a href="{{ url_for('jobs_list') }}" class="btn btn-secondary">
+            📋 View All Jobs
+        </a>
+    </div>
+</div>
+
+<!-- Progress Modal -->
+<div id="export-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 2rem; border-radius: 8px; min-width: 400px;">
+        <h3 id="export-title">Preparing Export...</h3>
+        <div class="progress">
+            <div class="progress-bar" id="export-progress" style="width: 0%;"></div>
+        </div>
+        <div class="progress-text" id="export-status">Initializing...</div>
+        <div style="text-align: center; margin-top: 1rem;">
+            <button onclick="cancelExport()" class="btn btn-secondary" id="cancel-btn">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.export-option {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1.5rem;
+    background: #f8f9fa;
+}
+
+.export-option h3 {
+    margin-bottom: 1rem;
+    color: #2c3e50;
+}
+
+.export-option p {
+    color: #666;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 0.5rem;
+}
+
+.form-help {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+input[type="text"], select, textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+textarea {
+    resize: vertical;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentExportRequest = null;
+
+function exportCSV() {
+    showExportDemo('Enhanced CSV Export', 'csv');
+}
+
+function exportRDF() {
+    showExportDemo('RDF/XML Export', 'rdf');
+}
+
+function exportJSONLD() {
+    showExportDemo('JSON-LD Export', 'jsonld');
+}
+
+function exportReport() {
+    showExportDemo('Reconciliation Report', 'report');
+}
+
+function exportMARC() {
+    showExportDemo('MARC Records Export', 'marc');
+}
+
+function exportCustom() {
+    showExportDemo('Custom Export', 'custom');
+}
+
+function exportAll() {
+    showExportDemo('All Formats (ZIP)', 'all');
+}
+
+function showExportDemo(title, format) {
+    // Show export modal
+    document.getElementById('export-title').textContent = `Preparing ${title}...`;
+    document.getElementById('export-status').textContent = 'Initializing...';
+    document.getElementById('export-progress').style.width = '0%';
+    document.getElementById('export-modal').style.display = 'block';
+    
+    // Simulate export process
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += Math.random() * 20;
+        if (progress >= 100) {
+            progress = 100;
+            clearInterval(interval);
+            
+            // Show completion and download
+            document.getElementById('export-status').textContent = 'Export complete!';
+            document.getElementById('export-progress').style.width = '100%';
+            
+            setTimeout(() => {
+                closeExportModal();
+                
+                // Create demo download
+                createDemoDownload(format);
+                
+                // Show success message
+                showSuccessMessage(`${title} prepared successfully! In a real application, your download would start automatically.`);
+            }, 1000);
+            
+            return;
+        }
+        
+        document.getElementById('export-progress').style.width = progress + '%';
+        
+        if (progress < 30) {
+            document.getElementById('export-status').textContent = 'Processing data...';
+        } else if (progress < 60) {
+            document.getElementById('export-status').textContent = 'Generating output...';
+        } else if (progress < 90) {
+            document.getElementById('export-status').textContent = 'Finalizing export...';
+        } else {
+            document.getElementById('export-status').textContent = 'Almost done...';
+        }
+    }, 200);
+}
+
+function createDemoDownload(format) {
+    // Create demo file content based on format
+    let content = '';
+    let filename = `{{ job.filename }}_reconciled.${format}`;
+    let mimeType = 'text/plain';
+    
+    switch(format) {
+        case 'csv':
+            content = 'entity_name,matched_uri,confidence,source\n"John Smith","http://wikidata.org/entity/Q123","high","wikidata"\n"Jane Doe","http://viaf.org/viaf/456","medium","viaf"';
+            mimeType = 'text/csv';
+            filename = `{{ job.filename }}_reconciled.csv`;
+            break;
+        case 'rdf':
+            content = '<?xml version="1.0"?>\n<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n  <!-- RDF content would be here -->\n</rdf:RDF>';
+            mimeType = 'application/rdf+xml';
+            filename = `{{ job.filename }}_reconciled.rdf`;
+            break;
+        case 'jsonld':
+            content = '{\n  "@context": "http://schema.org/",\n  "@type": "Dataset",\n  "name": "Reconciled Metadata"\n}';
+            mimeType = 'application/ld+json';
+            filename = `{{ job.filename }}_reconciled.jsonld`;
+            break;
+        default:
+            content = `Demo export file for format: ${format}\nJob: {{ job.filename }}\nGenerated: ${new Date().toISOString()}`;
+    }
+    
+    // Create and trigger download
+    const blob = new Blob([content], { type: mimeType });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+function showSuccessMessage(message) {
+    const successDiv = document.createElement('div');
+    successDiv.innerHTML = `
+    <div style="position: fixed; top: 20px; right: 20px; background: #d4edda; color: #155724; padding: 1rem; border-radius: 8px; border: 1px solid #c3e6cb; z-index: 1001; max-width: 400px;">
+        <strong>Success!</strong><br>
+        ${message}
+    </div>
+    `;
+    document.body.appendChild(successDiv);
+    
+    setTimeout(() => successDiv.remove(), 5000);
+}
+
+function cancelExport() {
+    if (currentExportRequest) {
+        currentExportRequest.abort();
+        currentExportRequest = null;
+    }
+    closeExportModal();
+}
+
+function closeExportModal() {
+    document.getElementById('export-modal').style.display = 'none';
+}
+</script>
+{% endblock %}

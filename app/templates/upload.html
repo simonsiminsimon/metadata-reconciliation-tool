@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Upload CSV - Entity Reconciliation{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>Upload CSV File</h1>
+    <p>Upload a CSV or Excel file containing entities to reconcile against external data sources.</p>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="file">Select File</label>
+            <input type="file" id="file" name="file" accept=".csv,.xlsx,.xls" required>
+            <div class="form-help">Supported formats: CSV, Excel (.xlsx, .xls). Maximum size: 16MB</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="entity_column">Entity Column Name</label>
+            <input type="text" id="entity_column" name="entity_column" placeholder="e.g., name, author, person" required>
+            <div class="form-help">The name of the column containing the entities to reconcile</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="type_column">Entity Type Column (Optional)</label>
+            <input type="text" id="type_column" name="type_column" placeholder="e.g., type, category">
+            <div class="form-help">Column specifying entity types (person, place, author, subject)</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="context_columns">Context Columns (Optional)</label>
+            <input type="text" id="context_columns" name="context_columns" placeholder="e.g., birth_year, nationality, occupation">
+            <div class="form-help">Comma-separated list of columns providing additional context for matching</div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Upload and Process</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Instructions</h2>
+    <ol>
+        <li><strong>Prepare your file:</strong> Ensure your CSV/Excel file has a header row with column names.</li>
+        <li><strong>Entity Column:</strong> Specify which column contains the names/entities you want to reconcile.</li>
+        <li><strong>Type Column:</strong> If you have a column indicating entity types (person, place, etc.), specify it here.</li>
+        <li><strong>Context Columns:</strong> Additional columns like dates, locations, or descriptions help improve matching accuracy.</li>
+        <li><strong>Processing:</strong> The system will query Wikidata, VIAF, and Getty vocabularies to find matches.</li>
+        <li><strong>Review:</strong> You can review and approve matches before exporting the results.</li>
+    </ol>
+</div>
+{% endblock %}

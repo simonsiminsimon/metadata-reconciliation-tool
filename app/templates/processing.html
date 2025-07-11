@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Processing - {{ job.filename }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>Processing: {{ job.filename }}</h1>
+    
+    <div class="progress">
+        <div class="progress-bar" id="progress-bar" style="width: 0%;"></div>
+    </div>
+    <div class="progress-text" id="progress-text">0% - Initializing...</div>
+    
+    <div class="job-details">
+        <p><strong>Status:</strong> <span id="status" class="badge badge-info">{{ job.status }}</span></p>
+        <p><strong>Entity Column:</strong> {{ job.entity_column }}</p>
+        {% if job.type_column %}
+        <p><strong>Type Column:</strong> {{ job.type_column }}</p>
+        {% endif %}
+        {% if job.context_columns %}
+        <p><strong>Context Columns:</strong> {{ job.context_columns | join(', ') }}</p>
+        {% endif %}
+        <p><strong>Started:</strong> {{ job.created_at }}</p>
+    </div>
+    
+    <div id="completed-section" class="completed-section">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="total-entities">-</div>
+                <div class="stat-label">Total Entities</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="successful-matches">-</div>
+                <div class="stat-label">Successful Matches</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="cache-hits">-</div>
+                <div class="stat-label">Cache Hit Rate</div>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <a href="{{ url_for('review', job_id=job.id) }}" class="btn btn-primary">Review Matches</a>
+            <a href="{{ url_for('export_page', job_id=job.id) }}" class="btn btn-secondary">Export Results</a>
+        </div>
+    </div>
+    
+    <div id="error-section" class="error-section">
+        <div class="alert alert-error">
+            <strong>Processing Failed:</strong> <span id="error-message"></span>
+        </div>
+        <a href="{{ url_for('upload') }}" class="btn btn-secondary">Upload New File</a>
+    </div>
+</div>
+
+<style>
+.job-details {
+    margin-top: 2rem;
+}
+
+.completed-section {
+    display: none;
+    margin-top: 2rem;
+}
+
+.error-section {
+    display: none;
+    margin-top: 2rem;
+}
+
+.action-buttons {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.action-buttons .btn {
+    margin: 0 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var jobId = '{{ job.id }}';
+var pollInterval;
+
+function updateJobStatus() {
+    fetch('/api/job/' + jobId + '/status')
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            var progress = Math.max(0, Math.min(100, data.progress || 0));
+            
+            var progressBar = document.getElementById('progress-bar');
+            if (progressBar) {
+                progressBar.style.width = progress + '%';
+            }
+            
+            var progressText = document.getElementById('progress-text');
+            if (progressText) {
+                progressText.textContent = progress + '% - ' + (data.message || 'Processing...');
+            }
+            
+            var statusElement = document.getElementById('status');
+            if (statusElement) {
+                statusElement.textContent = data.status || 'unknown';
+                var badgeClass = 'badge badge-info';
+                if (data.status === 'completed') {
+                    badgeClass = 'badge badge-success';
+                } else if (data.status === 'failed') {
+                    badgeClass = 'badge badge-danger';
+                } else if (data.status === 'processing') {
+                    badgeClass = 'badge badge-warning';
+                }
+                statusElement.className = badgeClass;
+            }
+            
+            if (data.status === 'completed') {
+                var completedSection = document.getElementById('completed-section');
+                if (completedSection) {
+                    completedSection.style.display = 'block';
+                }
+                
+                var totalEntities = document.getElementById('total-entities');
+                if (totalEntities) {
+                    totalEntities.textContent = data.total_entities || 0;
+                }
+                
+                var successfulMatches = document.getElementById('successful-matches');
+                if (successfulMatches) {
+                    successfulMatches.textContent = data.successful_matches || 0;
+                }
+                
+                var cacheHits = document.getElementById('cache-hits');
+                if (cacheHits) {
+                    if (data.statistics && data.statistics.cache_hit_rate !== undefined) {
+                        cacheHits.textContent = Math.round((data.statistics.cache_hit_rate || 0) * 100) + '%';
+                    } else {
+                        cacheHits.textContent = 'N/A';
+                    }
+                }
+                
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                }
+            } else if (data.status === 'failed') {
+                var errorSection = document.getElementById('error-section');
+                if (errorSection) {
+                    errorSection.style.display = 'block';
+                }
+                
+                var errorMessage = document.getElementById('error-message');
+                if (errorMessage) {
+                    errorMessage.textContent = data.message || 'Unknown error occurred';
+                }
+                
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                }
+            }
+        })
+        .catch(function(error) {
+            console.error('Error fetching job status:', error);
+        });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateJobStatus();
+    pollInterval = setInterval(updateJobStatus, 2000);
+});
+
+window.addEventListener('beforeunload', function() {
+    if (pollInterval) {
+        clearInterval(pollInterval);
+    }
+});
+</script>
+{% endblock %}

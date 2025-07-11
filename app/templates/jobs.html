@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Processing Jobs{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>Processing Jobs</h1>
+    <p>View all your reconciliation jobs and their current status.</p>
+    
+    {% if jobs %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Filename</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Created</th>
+                    <th>Entities</th>
+                    <th>Matches</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in jobs %}
+                <tr>
+                    <td>{{ job.filename }}</td>
+                    <td>
+                        {% if job.status == 'completed' %}
+                            <span class="badge badge-success">{{ job.status | title }}</span>
+                        {% elif job.status == 'failed' %}
+                            <span class="badge badge-danger">{{ job.status | title }}</span>
+                        {% elif job.status == 'processing' %}
+                            <span class="badge badge-warning">{{ job.status | title }}</span>
+                        {% else %}
+                            <span class="badge badge-info">{{ job.status | title }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if job.status in ['processing', 'queued'] %}
+                            <div class="mini-progress">
+                                <div class="mini-progress-bar" style="width: 0%;"></div>
+                            </div>
+                            <span class="progress-label">{{ job.progress or 0 }}%</span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if job.created_at %}
+                            {{ job.created_at[:19] | replace('T', ' ') }}
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if job.total_entities %}
+                            {{ job.total_entities }}
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if job.successful_matches %}
+                            {{ job.successful_matches }}
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            {% if job.status == 'processing' or job.status == 'queued' %}
+                                <a href="{{ url_for('processing', job_id=job.id) }}" class="btn btn-primary btn-sm">View</a>
+                            {% elif job.status == 'completed' %}
+                                <a href="{{ url_for('review', job_id=job.id) }}" class="btn btn-primary btn-sm">Review</a>
+                                <a href="{{ url_for('export_page', job_id=job.id) }}" class="btn btn-secondary btn-sm">Export</a>
+                            {% else %}
+                                <span class="badge badge-danger">Failed</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="no-matches">
+        <h3>No jobs found</h3>
+        <p>You haven't processed any files yet.</p>
+        <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload Your First File</a>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.table-responsive {
+    overflow-x: auto;
+    margin-top: 1rem;
+}
+
+.mini-progress {
+    width: 80px;
+    height: 8px;
+    background: #ecf0f1;
+    border-radius: 4px;
+    overflow: hidden;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+}
+
+.mini-progress-bar {
+    height: 100%;
+    background: #3498db;
+    transition: width 0.3s ease;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.progress-label {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.text-muted {
+    color: #666;
+}
+
+.action-buttons {
+    white-space: nowrap;
+}
+
+.action-buttons .btn {
+    margin-right: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+.btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+    .table th,
+    .table td {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.875rem;
+    }
+    
+    .action-buttons .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .mini-progress {
+        width: 60px;
+    }
+}
+</style>
+{% endblock %}
