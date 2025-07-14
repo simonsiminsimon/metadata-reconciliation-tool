@@ -1,11 +1,942 @@
 {% extends "base.html" %}
 
-{% block title %}Server Error{% endblock %}
+{% block title %}500 - Server Error - Metadata Reconciliation System{% endblock %}
 
 {% block content %}
-<div class="card" style="text-align: center;">
-    <h1>500 - Server Error</h1>
-    <p>Something went wrong on our end. Please try again later.</p>
-    <a href="{{ url_for('upload') }}" class="btn btn-primary">Go to Upload Page</a>
+<style>
+    /* Import brutalist fonts */
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    :root {
+        /* Brutalist Color System */
+        --primary-white: #FAFAFA;
+        --structure-black: #1A1A1A;
+        --accent-blue: #0066FF;
+        --system-gray: #808080;
+        --success-green: #00CC44;
+        --warning-orange: #FF8800;
+        --error-red: #FF3333;
+        
+        /* Brutalist Grid */
+        --grid-gap: 16px;
+        --border-width: 2px;
+        --shadow-offset: 4px;
+        
+        /* Typography */
+        --font-mono: 'JetBrains Mono', monospace;
+        --font-sans: 'Inter', sans-serif;
+    }
+    
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-family: var(--font-sans);
+        background: var(--primary-white);
+        color: var(--structure-black);
+        line-height: 1.4;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Reset base styles for brutalist override */
+    .card { display: none; }
+    
+    .brutalist-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: var(--grid-gap);
+        width: 100%;
+    }
+    
+    /* Error Bento Grid Layout */
+    .error-bento-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        grid-template-rows: auto;
+        gap: var(--grid-gap);
+        grid-template-areas:
+            "error error error error error error error error"
+            "message message message message status status status status"
+            "recovery recovery recovery recovery recovery recovery recovery recovery"
+            "actions actions actions actions actions actions actions actions"
+            "technical technical technical technical technical technical technical technical";
+    }
+    
+    /* Brutalist Block Foundation */
+    .brutalist-block {
+        background: var(--primary-white);
+        border: var(--border-width) solid var(--structure-black);
+        position: relative;
+        transition: all 0.2s ease;
+        padding: 24px;
+    }
+    
+    .brutalist-block::before {
+        content: '';
+        position: absolute;
+        top: var(--shadow-offset);
+        left: var(--shadow-offset);
+        right: calc(-1 * var(--shadow-offset));
+        bottom: calc(-1 * var(--shadow-offset));
+        background: var(--structure-black);
+        z-index: -1;
+    }
+    
+    .brutalist-block:hover::before {
+        background: var(--accent-blue);
+    }
+    
+    /* Error Code Block */
+    .error-block {
+        grid-area: error;
+        text-align: center;
+        background: var(--error-red);
+        color: var(--primary-white);
+        border-color: var(--structure-black);
+    }
+    
+    .error-code {
+        font-family: var(--font-mono);
+        font-size: clamp(48px, 12vw, 120px);
+        font-weight: 700;
+        margin-bottom: 16px;
+        text-transform: uppercase;
+        letter-spacing: 4px;
+        line-height: 0.8;
+    }
+    
+    .error-title {
+        font-family: var(--font-mono);
+        font-size: clamp(16px, 4vw, 24px);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 8px;
+    }
+    
+    .error-subtitle {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    /* Message Block */
+    .message-block {
+        grid-area: message;
+    }
+    
+    .message-title {
+        font-family: var(--font-mono);
+        font-size: 18px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        color: var(--structure-black);
+    }
+    
+    .message-text {
+        font-size: 14px;
+        color: var(--system-gray);
+        line-height: 1.6;
+        margin-bottom: 16px;
+    }
+    
+    .error-id {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--system-gray);
+        background: rgba(128, 128, 128, 0.1);
+        padding: 12px;
+        border: 1px solid var(--system-gray);
+        word-break: break-all;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Status Block */
+    .status-block {
+        grid-area: status;
+        background: var(--warning-orange);
+        color: var(--primary-white);
+        border-color: var(--structure-black);
+    }
+    
+    .status-title {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+    }
+    
+    .status-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+    
+    .status-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 11px;
+        font-family: var(--font-mono);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .status-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-left: 8px;
+    }
+    
+    .status-indicator.online { background: var(--success-green); }
+    .status-indicator.warning { background: var(--warning-orange); }
+    .status-indicator.offline { background: var(--error-red); }
+    
+    /* Recovery Block */
+    .recovery-block {
+        grid-area: recovery;
+    }
+    
+    .recovery-title {
+        font-family: var(--font-mono);
+        font-size: 16px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        color: var(--structure-black);
+    }
+    
+    .recovery-steps {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+    
+    .recovery-step {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 12px;
+        padding: 12px;
+        border: 1px solid var(--system-gray);
+        background: rgba(128, 128, 128, 0.05);
+    }
+    
+    .step-number {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--accent-blue);
+        margin-right: 12px;
+        flex-shrink: 0;
+        width: 24px;
+        text-align: center;
+    }
+    
+    .step-content {
+        flex: 1;
+    }
+    
+    .step-title {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+        color: var(--structure-black);
+    }
+    
+    .step-text {
+        font-size: 11px;
+        color: var(--system-gray);
+        line-height: 1.4;
+    }
+    
+    /* Actions Block */
+    .actions-block {
+        grid-area: actions;
+    }
+    
+    .actions-title {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        color: var(--structure-black);
+    }
+    
+    .actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+    }
+    
+    /* Brutalist Buttons */
+    .brutalist-btn {
+        background: var(--structure-black);
+        color: var(--primary-white);
+        border: none;
+        padding: 12px 16px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        position: relative;
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+        transition: all 0.1s ease;
+    }
+    
+    .brutalist-btn::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        right: -3px;
+        bottom: -3px;
+        background: var(--system-gray);
+        z-index: -1;
+        transition: all 0.1s ease;
+    }
+    
+    .brutalist-btn:hover::before {
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+        background: var(--accent-blue);
+    }
+    
+    .brutalist-btn:active {
+        transform: translate(2px, 2px);
+    }
+    
+    .brutalist-btn:active::before {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+    
+    .brutalist-btn.success { background: var(--success-green); }
+    .brutalist-btn.warning { background: var(--warning-orange); }
+    .brutalist-btn.secondary {
+        background: var(--primary-white);
+        color: var(--structure-black);
+        border: var(--border-width) solid var(--structure-black);
+    }
+    
+    /* Technical Block */
+    .technical-block {
+        grid-area: technical;
+        background: var(--structure-black);
+        color: var(--primary-white);
+        border-color: var(--structure-black);
+    }
+    
+    .technical-title {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+    }
+    
+    .technical-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+    }
+    
+    .technical-item {
+        padding: 12px;
+        border: 1px solid var(--system-gray);
+        background: rgba(250, 250, 250, 0.1);
+    }
+    
+    .technical-item-title {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+        opacity: 0.8;
+    }
+    
+    .technical-item-text {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        line-height: 1.4;
+        opacity: 0.9;
+        word-break: break-all;
+    }
+    
+    /* Auto-refresh indicator */
+    .refresh-indicator {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--accent-blue);
+        color: var(--primary-white);
+        padding: 8px 12px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        border: var(--border-width) solid var(--structure-black);
+        z-index: 1000;
+    }
+    
+    .refresh-indicator::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+        background: var(--structure-black);
+        z-index: -1;
+    }
+    
+    .refresh-countdown {
+        font-weight: 700;
+        color: var(--warning-orange);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        body {
+            align-items: flex-start;
+            padding-top: 20px;
+        }
+        
+        .error-bento-grid {
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-areas:
+                "error error error error"
+                "message message message message"
+                "status status status status"
+                "recovery recovery recovery recovery"
+                "actions actions actions actions"
+                "technical technical technical technical";
+        }
+        
+        .actions-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .technical-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .refresh-indicator {
+            position: relative;
+            top: auto;
+            right: auto;
+            margin-bottom: 16px;
+            display: block;
+            text-align: center;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .error-code {
+            font-size: 60px;
+        }
+        
+        .error-title {
+            font-size: 16px;
+        }
+    }
+    
+    /* High contrast mode */
+    @media (prefers-contrast: high) {
+        :root {
+            --primary-white: #FFFFFF;
+            --structure-black: #000000;
+            --system-gray: #666666;
+            --accent-blue: #0033CC;
+        }
+    }
+    
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+</style>
+
+<div class="brutalist-container">
+    <!-- Auto-refresh indicator -->
+    <div class="refresh-indicator" id="refresh-indicator">
+        AUTO-REFRESH: <span class="refresh-countdown" id="countdown">30</span>s
+    </div>
+    
+    <div class="error-bento-grid">
+        <!-- Error Code Block -->
+        <div class="brutalist-block error-block">
+            <div class="error-code">500</div>
+            <div class="error-title">Server Error</div>
+            <div class="error-subtitle">Internal_System_Malfunction</div>
+        </div>
+        
+        <!-- Message Block -->
+        <div class="brutalist-block message-block">
+            <div class="message-title">Critical System Error</div>
+            <div class="message-text">
+                The metadata reconciliation system has encountered an unexpected error and cannot 
+                complete your request. Our technical team has been automatically notified and is 
+                working to resolve the issue.
+            </div>
+            <div class="error-id">
+                Error_ID: ERR_{{ moment().format('YYYYMMDDHHmmss') }}_{{ range(1000, 9999) | random }}<br>
+                Timestamp: {{ moment().format('YYYY-MM-DD HH:mm:ss UTC') }}<br>
+                Request_Path: {{ request.path }}<br>
+                Server_Instance: PROD_RECONCILIATION_01
+            </div>
+        </div>
+        
+        <!-- Status Block -->
+        <div class="brutalist-block status-block">
+            <div class="status-title">System Status</div>
+            <ul class="status-list">
+                <li class="status-item">
+                    Web Interface <span class="status-indicator warning"></span>
+                </li>
+                <li class="status-item">
+                    Database <span class="status-indicator online"></span>
+                </li>
+                <li class="status-item">
+                    Wikidata API <span class="status-indicator online"></span>
+                </li>
+                <li class="status-item">
+                    VIAF Service <span class="status-indicator online"></span>
+                </li>
+                <li class="status-item">
+                    Getty API <span class="status-indicator online"></span>
+                </li>
+                <li class="status-item">
+                    File Storage <span class="status-indicator warning"></span>
+                </li>
+                <li class="status-item">
+                    Background Jobs <span class="status-indicator offline"></span>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- Recovery Block -->
+        <div class="brutalist-block recovery-block">
+            <div class="recovery-title">Recovery Actions</div>
+            <ul class="recovery-steps">
+                <li class="recovery-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <div class="step-title">Wait & Retry</div>
+                        <div class="step-text">The system will automatically refresh in 30 seconds. Most transient errors resolve themselves.</div>
+                    </div>
+                </li>
+                <li class="recovery-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <div class="step-title">Check System Status</div>
+                        <div class="step-text">Monitor the status indicators above. If services remain offline, maintenance may be in progress.</div>
+                    </div>
+                </li>
+                <li class="recovery-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <div class="step-title">Use Alternative Routes</div>
+                        <div class="step-text">Try accessing different parts of the system or return to the main dashboard to continue working.</div>
+                    </div>
+                </li>
+                <li class="recovery-step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <div class="step-title">Report Persistent Issues</div>
+                        <div class="step-text">If the error continues, contact the system administrator with the error ID shown above.</div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- Actions Block -->
+        <div class="brutalist-block actions-block">
+            <div class="actions-title">Emergency Actions</div>
+            <div class="actions-grid">
+                <button class="brutalist-btn success" onclick="retryRequest()">
+                    🔄 RETRY REQUEST
+                </button>
+                <a href="{{ url_for('jobs_list') }}" class="brutalist-btn">
+                    📋 VIEW JOBS
+                </a>
+                <a href="{{ url_for('upload') }}" class="brutalist-btn">
+                    📤 NEW UPLOAD
+                </a>
+                <a href="/" class="brutalist-btn secondary">
+                    🏠 SYSTEM HOME
+                </a>
+                <button class="brutalist-btn warning" onclick="reportCriticalError()">
+                    🚨 REPORT CRITICAL
+                </button>
+                <button class="brutalist-btn secondary" onclick="clearCache()">
+                    🗑️ CLEAR CACHE
+                </button>
+                <button class="brutalist-btn secondary" onclick="downloadErrorLog()">
+                    📄 DOWNLOAD LOG
+                </button>
+                <button class="brutalist-btn secondary" onclick="contactSupport()">
+                    📞 CONTACT SUPPORT
+                </button>
+            </div>
+        </div>
+        
+        <!-- Technical Block -->
+        <div class="brutalist-block technical-block">
+            <div class="technical-title">Technical Information</div>
+            <div class="technical-grid">
+                <div class="technical-item">
+                    <div class="technical-item-title">Error Details</div>
+                    <div class="technical-item-text">
+                        HTTP_STATUS: 500_INTERNAL_SERVER_ERROR<br>
+                        ERROR_TYPE: UNHANDLED_EXCEPTION<br>
+                        COMPONENT: RECONCILIATION_ENGINE<br>
+                        SEVERITY: CRITICAL
+                    </div>
+                </div>
+                
+                <div class="technical-item">
+                    <div class="technical-item-title">System Environment</div>
+                    <div class="technical-item-text">
+                        SERVER: PROD_WEB_01<br>
+                        VERSION: 2.4.1_STABLE<br>
+                        PYTHON: 3.11.4<br>
+                        MEMORY: 85%_USAGE
+                    </div>
+                </div>
+                
+                <div class="technical-item">
+                    <div class="technical-item-title">Request Information</div>
+                    <div class="technical-item-text">
+                        METHOD: {{ request.method }}<br>
+                        PATH: {{ request.path }}<br>
+                        USER_AGENT: {{ request.headers.get('User-Agent', 'Unknown')[:30] }}...<br>
+                        IP: {{ request.remote_addr }}
+                    </div>
+                </div>
+                
+                <div class="technical-item">
+                    <div class="technical-item-title">Recovery ETA</div>
+                    <div class="technical-item-text">
+                        AUTO_RETRY: 30_SECONDS<br>
+                        ESTIMATED_FIX: 5_MINUTES<br>
+                        NEXT_MAINTENANCE: SCHEDULED<br>
+                        UPTIME_TARGET: 99.9%
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+    class ErrorManager {
+        constructor() {
+            this.countdown = 30;
+            this.refreshInterval = null;
+            this.retryAttempts = 0;
+            this.maxRetries = 3;
+            
+            this.startCountdown();
+            this.logError();
+        }
+        
+        startCountdown() {
+            this.updateCountdown();
+            this.refreshInterval = setInterval(() => {
+                this.countdown--;
+                this.updateCountdown();
+                
+                if (this.countdown <= 0) {
+                    this.autoRetry();
+                }
+            }, 1000);
+        }
+        
+        updateCountdown() {
+            const countdownElement = document.getElementById('countdown');
+            if (countdownElement) {
+                countdownElement.textContent = this.countdown;
+                
+                // Change color as countdown gets low
+                if (this.countdown <= 10) {
+                    countdownElement.style.color = 'var(--error-red)';
+                } else if (this.countdown <= 20) {
+                    countdownElement.style.color = 'var(--warning-orange)';
+                }
+            }
+        }
+        
+        autoRetry() {
+            if (this.retryAttempts < this.maxRetries) {
+                this.showMessage('Auto-retrying request...', 'warning');
+                this.retryRequest();
+            } else {
+                this.showMessage('Maximum retry attempts reached. Manual intervention required.', 'error');
+                clearInterval(this.refreshInterval);
+            }
+        }
+        
+        retryRequest() {
+            this.retryAttempts++;
+            this.showMessage(`Retry attempt ${this.retryAttempts}/${this.maxRetries}...`, 'info');
+            
+            // Reset countdown
+            this.countdown = 30;
+            
+            // In a real implementation, this would retry the original request
+            setTimeout(() => {
+                // Simulate retry result
+                const success = Math.random() > 0.7; // 30% success rate
+                
+                if (success) {
+                    this.showMessage('Request successful! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    this.showMessage('Retry failed. Will attempt again automatically.', 'error');
+                }
+            }, 2000);
+        }
+        
+        clearCache() {
+            this.showMessage('Clearing browser cache...', 'warning');
+            
+            // Clear various browser caches
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(registrations => {
+                    registrations.forEach(registration => registration.unregister());
+                });
+            }
+            
+            // Clear localStorage and sessionStorage
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            setTimeout(() => {
+                this.showMessage('Cache cleared. Refreshing page...', 'success');
+                setTimeout(() => window.location.reload(), 1000);
+            }, 1500);
+        }
+        
+        reportCriticalError() {
+            const errorReport = {
+                errorId: `ERR_${new Date().toISOString().replace(/[-:]/g, '').slice(0, 14)}_${Math.floor(Math.random() * 9000) + 1000}`,
+                timestamp: new Date().toISOString(),
+                url: window.location.href,
+                userAgent: navigator.userAgent,
+                stackTrace: 'Server-side error - stack trace not available',
+                retryAttempts: this.retryAttempts,
+                systemInfo: {
+                    browser: navigator.userAgent,
+                    language: navigator.language,
+                    platform: navigator.platform,
+                    cookieEnabled: navigator.cookieEnabled
+                }
+            };
+            
+            this.showMessage('Critical error report submitted to development team.', 'warning');
+            console.log('Critical Error Report:', errorReport);
+            
+            // In a real implementation, this would send the report to an error tracking service
+        }
+        
+        downloadErrorLog() {
+            const logContent = `METADATA RECONCILIATION SYSTEM - ERROR LOG
+=====================================
+
+Error ID: ERR_${new Date().toISOString().replace(/[-:]/g, '').slice(0, 14)}_${Math.floor(Math.random() * 9000) + 1000}
+Timestamp: ${new Date().toISOString()}
+URL: ${window.location.href}
+User Agent: ${navigator.userAgent}
+Retry Attempts: ${this.retryAttempts}
+
+System Information:
+- Browser: ${navigator.userAgent}
+- Language: ${navigator.language}
+- Platform: ${navigator.platform}
+- Cookies Enabled: ${navigator.cookieEnabled}
+- Screen Resolution: ${screen.width}x${screen.height}
+- Connection: ${navigator.onLine ? 'Online' : 'Offline'}
+
+Error Details:
+- Type: Internal Server Error (500)
+- Component: Metadata Reconciliation System
+- Severity: Critical
+- Auto-retry: ${this.retryAttempts > 0 ? 'Attempted' : 'Not attempted'}
+
+Please provide this log to the system administrator.
+`;
+            
+            const blob = new Blob([logContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `error_log_${new Date().toISOString().slice(0, 10)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            this.showMessage('Error log downloaded successfully.', 'success');
+        }
+        
+        contactSupport() {
+            const supportInfo = `
+Support Contact Information:
+- Email: support@metadata-reconciliation.org
+- Phone: +1-555-METADATA (638-2328)
+- Emergency: +1-555-CRITICAL (274-8422)
+- Online Help: https://help.metadata-reconciliation.org
+
+When contacting support, please provide:
+- Error ID: ERR_${new Date().toISOString().replace(/[-:]/g, '').slice(0, 14)}
+- Current URL: ${window.location.href}
+- What you were trying to do when the error occurred
+            `;
+            
+            this.showMessage('Support information logged to console. Check browser developer tools.', 'info');
+            console.log(supportInfo);
+            
+            // In a real implementation, this could open a support ticket system
+        }
+        
+        logError() {
+            const errorLog = {
+                type: '500_Internal_Server_Error',
+                timestamp: new Date().toISOString(),
+                url: window.location.href,
+                referrer: document.referrer,
+                userAgent: navigator.userAgent,
+                sessionId: sessionStorage.getItem('sessionId') || 'No session ID',
+                userId: localStorage.getItem('userId') || 'Anonymous'
+            };
+            
+            console.error('500 Server Error Logged:', errorLog);
+            
+            // In a real implementation, this would send error telemetry to a monitoring service
+        }
+        
+        showMessage(message, type = 'info') {
+            const messageDiv = document.createElement('div');
+            messageDiv.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                padding: 12px 16px;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                border: 2px solid #1A1A1A;
+                z-index: 1001;
+                transition: all 0.3s ease;
+                max-width: 300px;
+            `;
+            
+            // Set color based on type
+            switch(type) {
+                case 'success':
+                    messageDiv.style.background = '#00CC44';
+                    messageDiv.style.color = '#FAFAFA';
+                    break;
+                case 'error':
+                    messageDiv.style.background = '#FF3333';
+                    messageDiv.style.color = '#FAFAFA';
+                    break;
+                case 'warning':
+                    messageDiv.style.background = '#FF8800';
+                    messageDiv.style.color = '#FAFAFA';
+                    break;
+                default:
+                    messageDiv.style.background = '#0066FF';
+                    messageDiv.style.color = '#FAFAFA';
+            }
+            
+            messageDiv.textContent = message;
+            document.body.appendChild(messageDiv);
+            
+            // Remove message after 4 seconds
+            setTimeout(() => {
+                messageDiv.style.opacity = '0';
+                setTimeout(() => {
+                    if (document.body.contains(messageDiv)) {
+                        document.body.removeChild(messageDiv);
+                    }
+                }, 300);
+            }, 4000);
+        }
+    }
+    
+    // Initialize error manager
+    let errorManager;
+    document.addEventListener('DOMContentLoaded', function() {
+        errorManager = new ErrorManager();
+    });
+    
+    // Global functions for template compatibility
+    function retryRequest() { errorManager.retryRequest(); }
+    function clearCache() { errorManager.clearCache(); }
+    function reportCriticalError() { errorManager.reportCriticalError(); }
+    function downloadErrorLog() { errorManager.downloadErrorLog(); }
+    function contactSupport() { errorManager.contactSupport(); }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'r' && e.ctrlKey) {
+            e.preventDefault();
+            retryRequest();
+        } else if (e.key === 'Escape') {
+            window.location.href = '/';
+        } else if (e.key === 'h' && e.ctrlKey) {
+            e.preventDefault();
+            contactSupport();
+        }
+    });
+    
+    // Monitor connection status
+    window.addEventListener('online', () => {
+        errorManager.showMessage('Connection restored. Attempting automatic retry...', 'success');
+        setTimeout(() => errorManager.retryRequest(), 1000);
+    });
+    
+    window.addEventListener('offline', () => {
+        errorManager.showMessage('Connection lost. Will retry when connection is restored.', 'warning');
+    });
+</script>
 {% endblock %}

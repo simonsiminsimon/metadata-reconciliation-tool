@@ -2,7 +2,7 @@
 
 {% block title %}Job Management Module - Metadata Reconciliation System{% endblock %}
 
-{% block styles %}
+{% block content %}
 <style>
     /* Import brutalist fonts */
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
@@ -27,15 +27,42 @@
         --font-sans: 'Inter', sans-serif;
     }
     
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-family: var(--font-sans);
+        background: var(--primary-white);
+        color: var(--structure-black);
+        line-height: 1.4;
+        min-height: 100vh;
+    }
+    
     /* Reset base styles for brutalist override */
     .card { display: none; }
     
     .brutalist-container {
-        max-width: 1600px;
+        max-width: 1400px;
         margin: 0 auto;
         padding: var(--grid-gap);
         min-height: 100vh;
         background: var(--primary-white);
+    }
+    
+    /* Main Jobs Grid Layout */
+    .jobs-bento-grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        grid-template-rows: auto;
+        gap: var(--grid-gap);
+        grid-template-areas:
+            "header header header header header header metrics metrics metrics metrics metrics metrics"
+            "controls controls controls controls controls controls filters filters filters filters filters filters"
+            "jobs jobs jobs jobs jobs jobs jobs jobs jobs jobs jobs jobs"
+            "pagination pagination pagination pagination pagination pagination pagination pagination pagination pagination pagination pagination";
     }
     
     /* Brutalist Block Foundation */
@@ -62,7 +89,11 @@
         background: var(--accent-blue);
     }
     
-    /* System Title */
+    /* Header Block */
+    .header-block {
+        grid-area: header;
+    }
+    
     .system-title {
         font-family: var(--font-mono);
         font-size: clamp(24px, 5vw, 32px);
@@ -77,19 +108,23 @@
         font-family: var(--font-sans);
         font-size: 14px;
         color: var(--system-gray);
-        margin-bottom: 24px;
+        margin-bottom: 0;
         line-height: 1.4;
     }
     
-    /* Status Grid */
-    .status-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 12px;
-        margin-top: 24px;
+    /* Metrics Block */
+    .metrics-block {
+        grid-area: metrics;
     }
     
-    .status-card {
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-top: 16px;
+    }
+    
+    .metric-card {
         background: var(--structure-black);
         color: var(--primary-white);
         padding: 16px;
@@ -98,7 +133,7 @@
         border: var(--border-width) solid var(--structure-black);
     }
     
-    .status-card::before {
+    .metric-card::before {
         content: '';
         position: absolute;
         top: 3px;
@@ -109,7 +144,11 @@
         z-index: -1;
     }
     
-    .status-value {
+    .metric-card.success::before { background: var(--success-green); }
+    .metric-card.warning::before { background: var(--warning-orange); }
+    .metric-card.error::before { background: var(--error-red); }
+    
+    .metric-value {
         font-family: var(--font-mono);
         font-size: 28px;
         font-weight: 700;
@@ -117,7 +156,7 @@
         color: var(--primary-white);
     }
     
-    .status-label {
+    .metric-label {
         font-family: var(--font-mono);
         font-size: 10px;
         text-transform: uppercase;
@@ -125,20 +164,121 @@
         opacity: 0.9;
     }
     
-    /* Jobs Header Layout */
-    .jobs-header {
-        display: grid;
-        grid-template-columns: 1fr auto;
+    /* Controls Block */
+    .controls-block {
+        grid-area: controls;
+        display: flex;
+        align-items: center;
         gap: var(--grid-gap);
-        align-items: start;
-        margin-bottom: var(--grid-gap);
     }
     
-    .jobs-controls {
+    .view-toggle {
+        display: flex;
+        gap: 2px;
+        border: var(--border-width) solid var(--structure-black);
+    }
+    
+    .view-btn {
+        width: 48px;
+        height: 48px;
+        background: var(--primary-white);
+        border: none;
+        font-family: var(--font-mono);
+        font-size: 16px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--structure-black);
+        transition: all 0.1s ease;
+        position: relative;
+    }
+    
+    .view-btn.active {
+        background: var(--structure-black);
+        color: var(--primary-white);
+    }
+    
+    .view-btn.active::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+        background: var(--accent-blue);
+        z-index: -1;
+    }
+    
+    /* Bulk Operations Toggle */
+    .bulk-toggle {
+        background: var(--system-gray);
+        color: var(--primary-white);
+        border: none;
+        padding: 12px 16px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        position: relative;
+    }
+    
+    .bulk-toggle::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        right: -3px;
+        bottom: -3px;
+        background: var(--structure-black);
+        z-index: -1;
+    }
+    
+    .bulk-toggle.active {
+        background: var(--accent-blue);
+    }
+    
+    /* Filters Block */
+    .filters-block {
+        grid-area: filters;
+    }
+    
+    .filters-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr auto;
+        gap: 12px;
+        align-items: end;
+    }
+    
+    .field-group {
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        min-width: 240px;
+    }
+    
+    .field-label {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--structure-black);
+    }
+    
+    .field-input, .field-select {
+        padding: 12px;
+        border: var(--border-width) solid var(--structure-black);
+        background: var(--primary-white);
+        font-family: var(--font-sans);
+        font-size: 14px;
+        font-weight: 400;
+    }
+    
+    .field-input:focus, .field-select:focus {
+        outline: none;
+        border-color: var(--accent-blue);
     }
     
     /* Brutalist Buttons */
@@ -146,7 +286,7 @@
         background: var(--structure-black);
         color: var(--primary-white);
         border: none;
-        padding: 14px 20px;
+        padding: 12px 16px;
         font-family: var(--font-mono);
         font-size: 11px;
         font-weight: 600;
@@ -197,142 +337,15 @@
         border: var(--border-width) solid var(--structure-black);
     }
     
-    .brutalist-btn.success {
-        background: var(--success-green);
-        color: var(--primary-white);
+    .brutalist-btn.success { background: var(--success-green); }
+    .brutalist-btn.warning { background: var(--warning-orange); }
+    .brutalist-btn.error { background: var(--error-red); }
+    
+    /* Jobs Container */
+    .jobs-container {
+        grid-area: jobs;
     }
     
-    .brutalist-btn.success::before {
-        background: var(--success-green);
-        opacity: 0.7;
-    }
-    
-    .brutalist-btn.danger {
-        background: var(--error-red);
-        color: var(--primary-white);
-    }
-    
-    .brutalist-btn.danger::before {
-        background: var(--error-red);
-        opacity: 0.7;
-    }
-    
-    /* Filter Toolbar */
-    .filter-toolbar {
-        background: var(--structure-black);
-        color: var(--primary-white);
-        padding: 20px;
-        margin-bottom: var(--grid-gap);
-        border: var(--border-width) solid var(--structure-black);
-        position: relative;
-    }
-    
-    .filter-toolbar::before {
-        content: '';
-        position: absolute;
-        top: 4px;
-        left: 4px;
-        right: -4px;
-        bottom: -4px;
-        background: var(--accent-blue);
-        z-index: -1;
-    }
-    
-    .toolbar-grid {
-        display: grid;
-        grid-template-columns: 1fr auto auto;
-        gap: 20px;
-        align-items: center;
-    }
-    
-    .search-box {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-    }
-    
-    .search-input {
-        flex: 1;
-        padding: 12px;
-        background: var(--primary-white);
-        border: none;
-        font-family: var(--font-mono);
-        font-size: 12px;
-        color: var(--structure-black);
-        border: 2px solid transparent;
-    }
-    
-    .search-input:focus {
-        outline: none;
-        border-color: var(--accent-blue);
-    }
-    
-    .search-btn {
-        padding: 12px 16px;
-        background: var(--accent-blue);
-        color: var(--primary-white);
-        border: none;
-        font-family: var(--font-mono);
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        cursor: pointer;
-        transition: all 0.1s ease;
-    }
-    
-    .search-btn:hover {
-        background: var(--primary-white);
-        color: var(--structure-black);
-    }
-    
-    .sort-controls {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        font-family: var(--font-mono);
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .sort-select {
-        background: var(--primary-white);
-        border: none;
-        padding: 8px 12px;
-        font-family: var(--font-mono);
-        font-size: 10px;
-        color: var(--structure-black);
-        text-transform: uppercase;
-    }
-    
-    .view-toggle {
-        display: flex;
-        gap: 2px;
-        border: 2px solid var(--primary-white);
-    }
-    
-    .view-btn {
-        width: 36px;
-        height: 36px;
-        background: var(--primary-white);
-        border: none;
-        font-family: var(--font-mono);
-        font-size: 16px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--structure-black);
-        transition: all 0.1s ease;
-    }
-    
-    .view-btn.active {
-        background: var(--accent-blue);
-        color: var(--primary-white);
-    }
-    
-    /* Bulk Operations */
     .bulk-operations {
         background: rgba(26, 26, 26, 0.05);
         padding: 20px;
@@ -363,18 +376,17 @@
         flex-wrap: wrap;
     }
     
-    /* Jobs Container */
-    .jobs-container {
+    /* Job Grid/List Views */
+    .jobs-grid {
         display: grid;
         gap: var(--grid-gap);
-        margin-bottom: 32px;
     }
     
-    .jobs-container.list-view {
+    .jobs-grid.list-view {
         grid-template-columns: 1fr;
     }
     
-    .jobs-container.grid-view {
+    .jobs-grid.grid-view {
         grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
     }
     
@@ -385,15 +397,17 @@
         position: relative;
         transition: all 0.2s ease;
         overflow: hidden;
+        padding: 20px;
+        cursor: pointer;
     }
     
     .job-card::before {
         content: '';
         position: absolute;
-        top: 4px;
-        left: 4px;
-        right: -4px;
-        bottom: -4px;
+        top: var(--shadow-offset);
+        left: var(--shadow-offset);
+        right: calc(-1 * var(--shadow-offset));
+        bottom: calc(-1 * var(--shadow-offset));
         background: var(--system-gray);
         z-index: -1;
         transition: all 0.2s ease;
@@ -404,450 +418,256 @@
         transform: translate(-2px, -2px);
     }
     
-    .job-card.status-completed::before {
-        background: var(--success-green);
-    }
+    .job-card.status-completed::before { background: var(--success-green); }
+    .job-card.status-failed::before { background: var(--error-red); }
+    .job-card.status-processing::before { background: var(--warning-orange); }
     
-    .job-card.status-failed::before {
-        background: var(--error-red);
-    }
-    
-    .job-card.status-processing::before {
-        background: var(--warning-orange);
-        animation: pulse 2s infinite;
+    .job-card.selected {
+        background: rgba(0, 102, 255, 0.1);
     }
     
     .job-header {
-        padding: 20px;
-        background: var(--structure-black);
-        color: var(--primary-white);
-        border-bottom: var(--border-width) solid var(--structure-black);
-        position: relative;
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 16px;
+    }
+    
+    .job-select {
+        margin-right: 12px;
+        transform: scale(1.2);
     }
     
     .job-filename {
         font-family: var(--font-mono);
         font-size: 16px;
         font-weight: 700;
-        margin-bottom: 8px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+        color: var(--structure-black);
         word-break: break-all;
-        line-height: 1.2;
     }
     
     .job-id {
         font-family: var(--font-mono);
         font-size: 10px;
-        opacity: 0.7;
+        color: var(--system-gray);
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .job-body {
-        padding: 20px;
+        letter-spacing: 1px;
     }
     
     .job-status {
-        display: inline-block;
-        padding: 8px 12px;
         font-family: var(--font-mono);
         font-size: 10px;
-        font-weight: 700;
+        font-weight: 600;
+        padding: 4px 8px;
         text-transform: uppercase;
         letter-spacing: 1px;
-        border: 2px solid;
-        margin-bottom: 16px;
-        position: relative;
+        border: 1px solid var(--structure-black);
     }
     
-    .job-status::before {
-        content: '';
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        right: -2px;
-        bottom: -2px;
-        z-index: -1;
-    }
+    .job-status.completed { background: var(--success-green); color: var(--primary-white); }
+    .job-status.failed { background: var(--error-red); color: var(--primary-white); }
+    .job-status.processing { background: var(--warning-orange); color: var(--primary-white); }
+    .job-status.pending { background: var(--system-gray); color: var(--primary-white); }
     
-    .job-status.uploaded {
-        background: var(--primary-white);
-        color: var(--system-gray);
-        border-color: var(--system-gray);
-    }
-    
-    .job-status.uploaded::before {
-        background: var(--system-gray);
-    }
-    
-    .job-status.processing {
-        background: var(--primary-white);
-        color: var(--warning-orange);
-        border-color: var(--warning-orange);
-        animation: statusPulse 2s infinite;
-    }
-    
-    .job-status.processing::before {
-        background: var(--warning-orange);
-    }
-    
-    .job-status.completed {
-        background: var(--primary-white);
-        color: var(--success-green);
-        border-color: var(--success-green);
-    }
-    
-    .job-status.completed::before {
-        background: var(--success-green);
-    }
-    
-    .job-status.failed {
-        background: var(--primary-white);
-        color: var(--error-red);
-        border-color: var(--error-red);
-    }
-    
-    .job-status.failed::before {
-        background: var(--error-red);
-    }
-    
-    /* Progress System */
-    .job-progress {
+    .job-metrics {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
         margin: 16px 0;
     }
     
-    .mini-progress {
-        width: 100%;
-        height: 16px;
-        background: var(--system-gray);
-        border: 2px solid var(--structure-black);
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .mini-progress-fill {
-        height: 100%;
-        background: linear-gradient(90deg, var(--accent-blue), var(--accent-blue));
-        transition: width 0.5s ease;
-        position: relative;
-    }
-    
-    .mini-progress-fill::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: -4px;
-        bottom: 0;
-        width: 4px;
-        background: var(--structure-black);
-    }
-    
-    .mini-progress-fill::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: repeating-linear-gradient(
-            45deg,
-            transparent,
-            transparent 4px,
-            rgba(255, 255, 255, 0.1) 4px,
-            rgba(255, 255, 255, 0.1) 8px
-        );
-        animation: progressStripes 1s linear infinite;
-    }
-    
-    .progress-label {
-        font-family: var(--font-mono);
-        font-size: 10px;
-        margin-top: 6px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--system-gray);
-    }
-    
-    /* Metrics Grid */
-    .job-metrics {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
-        margin: 20px 0;
-    }
-    
-    .metric-item {
+    .job-metric {
         text-align: center;
-        padding: 12px;
-        background: var(--primary-white);
-        border: 2px solid var(--system-gray);
-        position: relative;
+        padding: 8px;
+        border: 1px solid var(--system-gray);
     }
     
-    .metric-item::before {
-        content: '';
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        right: -2px;
-        bottom: -2px;
-        background: var(--system-gray);
-        z-index: -1;
-        opacity: 0.3;
-    }
-    
-    .metric-value {
+    .metric-number {
         font-family: var(--font-mono);
-        font-size: 20px;
+        font-size: 18px;
         font-weight: 700;
-        color: var(--accent-blue);
-        margin-bottom: 4px;
+        color: var(--structure-black);
     }
     
-    .metric-label {
+    .metric-text {
         font-family: var(--font-mono);
         font-size: 8px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         color: var(--system-gray);
+        margin-top: 2px;
     }
     
-    /* Job Metadata */
-    .job-meta {
-        font-size: 11px;
-        color: var(--system-gray);
+    .job-progress {
         margin: 16px 0;
+    }
+    
+    .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: var(--system-gray);
+        border: 1px solid var(--structure-black);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        background: var(--accent-blue);
+        transition: width 0.3s ease;
+    }
+    
+    .progress-text {
         font-family: var(--font-mono);
+        font-size: 10px;
+        margin-top: 4px;
+        color: var(--system-gray);
     }
     
-    .meta-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 6px;
-        padding: 4px 0;
-    }
-    
-    .meta-label {
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .meta-value {
-        font-weight: 400;
-    }
-    
-    /* Job Actions */
     .job-actions {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
-        margin-top: 20px;
-        padding-top: 16px;
-        border-top: 2px solid var(--system-gray);
-        align-items: center;
+        margin-top: 16px;
     }
     
     .job-btn {
         padding: 8px 12px;
-        font-family: var(--font-mono);
         font-size: 9px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        border: 2px solid var(--structure-black);
-        background: var(--primary-white);
-        color: var(--structure-black);
-        text-decoration: none;
-        cursor: pointer;
-        position: relative;
-        transition: all 0.1s ease;
-        display: inline-block;
+        min-width: auto;
+        flex: 1;
     }
     
-    .job-btn::before {
-        content: '';
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        right: -2px;
-        bottom: -2px;
-        background: var(--system-gray);
-        z-index: -1;
-        transition: all 0.1s ease;
-    }
-    
-    .job-btn:hover::before {
-        top: 1px;
-        left: 1px;
-        right: -1px;
-        bottom: -1px;
-        background: var(--accent-blue);
-    }
-    
-    .job-btn:active {
-        transform: translate(1px, 1px);
-    }
-    
-    .job-btn.primary {
-        background: var(--accent-blue);
-        color: var(--primary-white);
-        border-color: var(--accent-blue);
-    }
-    
-    .job-btn.success {
-        background: var(--success-green);
-        color: var(--primary-white);
-        border-color: var(--success-green);
-    }
-    
-    .job-btn.danger {
-        background: var(--error-red);
-        color: var(--primary-white);
-        border-color: var(--error-red);
-    }
-    
-    .job-select {
-        width: 20px;
-        height: 20px;
-        margin-right: 12px;
-        accent-color: var(--accent-blue);
-    }
-    
-    /* No Jobs State */
-    .no-jobs {
-        text-align: center;
-        padding: 64px 32px;
+    .job-timestamp {
+        font-family: var(--font-mono);
+        font-size: 10px;
         color: var(--system-gray);
-        border: 4px dashed var(--system-gray);
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--system-gray);
+    }
+    
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 80px 20px;
+        border: 2px dashed var(--system-gray);
         background: rgba(128, 128, 128, 0.05);
     }
     
-    .no-jobs-icon {
+    .empty-icon {
         font-family: var(--font-mono);
-        font-size: 72px;
-        margin-bottom: 20px;
-        display: block;
+        font-size: 48px;
+        margin-bottom: 16px;
         color: var(--system-gray);
     }
     
-    .no-jobs-title {
+    .empty-title {
         font-family: var(--font-mono);
         font-size: 18px;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 12px;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
         color: var(--structure-black);
     }
     
-    .no-jobs-text {
+    .empty-text {
         font-size: 14px;
+        color: var(--system-gray);
         margin-bottom: 24px;
-        line-height: 1.4;
     }
     
-    /* Alert System */
-    .alert {
-        padding: 16px 20px;
-        margin-bottom: 16px;
-        border: var(--border-width) solid;
-        position: relative;
+    /* Pagination Block */
+    .pagination-block {
+        grid-area: pagination;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .pagination-info {
         font-family: var(--font-mono);
-    }
-    
-    .alert::before {
-        content: '';
-        position: absolute;
-        top: 3px;
-        left: 3px;
-        right: -3px;
-        bottom: -3px;
-        z-index: -1;
-    }
-    
-    .alert.success {
-        background: var(--primary-white);
-        color: var(--success-green);
-        border-color: var(--success-green);
-    }
-    
-    .alert.success::before {
-        background: var(--success-green);
-    }
-    
-    .alert.error {
-        background: var(--primary-white);
-        color: var(--error-red);
-        border-color: var(--error-red);
-    }
-    
-    .alert.error::before {
-        background: var(--error-red);
-    }
-    
-    .alert-title {
         font-size: 12px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 4px;
+        color: var(--system-gray);
+    }
+    
+    .pagination-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .pagination-btn {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
     }
     
     /* Animations */
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
-    }
-    
-    @keyframes statusPulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.02); }
-    }
-    
-    @keyframes progressStripes {
-        0% { background-position: 0 0; }
-        100% { background-position: 20px 0; }
-    }
-    
     @keyframes slideDown {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
     /* Responsive Design */
     @media (max-width: 1024px) {
-        .jobs-header {
-            grid-template-columns: 1fr;
+        .jobs-bento-grid {
+            grid-template-areas:
+                "header header header header header header header header header header header header"
+                "metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics metrics"
+                "controls controls controls controls controls controls filters filters filters filters filters filters"
+                "jobs jobs jobs jobs jobs jobs jobs jobs jobs jobs jobs jobs"
+                "pagination pagination pagination pagination pagination pagination pagination pagination pagination pagination pagination pagination";
         }
         
-        .toolbar-grid {
-            grid-template-columns: 1fr;
-            gap: 16px;
-        }
-        
-        .jobs-container.grid-view {
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        }
-        
-        .job-metrics {
+        .metrics-grid {
             grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .filters-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .jobs-grid.grid-view {
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
         }
     }
     
     @media (max-width: 768px) {
-        .brutalist-container {
-            padding: 12px;
+        .jobs-bento-grid {
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-areas:
+                "header header header header header header"
+                "metrics metrics metrics metrics metrics metrics"
+                "controls controls controls controls controls controls"
+                "filters filters filters filters filters filters"
+                "jobs jobs jobs jobs jobs jobs"
+                "pagination pagination pagination pagination pagination pagination";
         }
         
-        .search-box {
+        .metrics-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .filters-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .controls-block {
             flex-direction: column;
             align-items: stretch;
-        }
-        
-        .jobs-container.grid-view {
-            grid-template-columns: 1fr;
         }
         
         .job-actions {
@@ -859,12 +679,8 @@
             width: 100%;
         }
         
-        .status-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        
         .job-metrics {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, 1fr);
         }
     }
     
@@ -877,7 +693,11 @@
             font-size: 14px;
         }
         
-        .status-grid {
+        .metrics-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .job-metrics {
             grid-template-columns: 1fr;
         }
     }
@@ -901,235 +721,249 @@
         }
     }
 </style>
-{% endblock %}
 
-{% block content %}
 <div class="brutalist-container">
-    <div class="jobs-header">
-        <div class="brutalist-block">
+    <div class="jobs-bento-grid">
+        <!-- Header Block -->
+        <div class="brutalist-block header-block">
             <h1 class="system-title">Job Management Module</h1>
             <p class="body-text">Monitor and manage metadata reconciliation processing jobs across the system infrastructure.</p>
-            
-            <div class="status-grid">
-                <div class="status-card">
-                    <div class="status-value" id="total-jobs">{{ jobs | length }}</div>
-                    <div class="status-label">Total Jobs</div>
+        </div>
+        
+        <!-- Metrics Block -->
+        <div class="brutalist-block metrics-block">
+            <h2 class="field-label">System Metrics</h2>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value" id="total-jobs">{{ jobs | length }}</div>
+                    <div class="metric-label">Total Jobs</div>
                 </div>
-                <div class="status-card">
-                    <div class="status-value" id="active-jobs">{{ jobs | selectattr('status', 'equalto', 'processing') | list | length }}</div>
-                    <div class="status-label">Processing</div>
+                <div class="metric-card warning">
+                    <div class="metric-value" id="active-jobs">{{ jobs | selectattr('status', 'equalto', 'processing') | list | length }}</div>
+                    <div class="metric-label">Processing</div>
                 </div>
-                <div class="status-card">
-                    <div class="status-value" id="completed-jobs">{{ jobs | selectattr('status', 'equalto', 'completed') | list | length }}</div>
-                    <div class="status-label">Completed</div>
+                <div class="metric-card success">
+                    <div class="metric-value" id="completed-jobs">{{ jobs | selectattr('status', 'equalto', 'completed') | list | length }}</div>
+                    <div class="metric-label">Completed</div>
                 </div>
-                <div class="status-card">
-                    <div class="status-value" id="failed-jobs">{{ jobs | selectattr('status', 'equalto', 'failed') | list | length }}</div>
-                    <div class="status-label">Failed</div>
+                <div class="metric-card error">
+                    <div class="metric-value" id="failed-jobs">{{ jobs | selectattr('status', 'equalto', 'failed') | list | length }}</div>
+                    <div class="metric-label">Failed</div>
                 </div>
             </div>
         </div>
         
-        <div class="brutalist-block jobs-controls">
-            <a href="{{ url_for('upload') }}" class="brutalist-btn success">
-                New Reconciliation Job
-            </a>
-            <button class="brutalist-btn secondary" onclick="refreshJobs()">
-                Refresh Status
-            </button>
-            <button class="brutalist-btn secondary" onclick="toggleBulkOperations()">
-                Bulk Operations
-            </button>
-            <button class="brutalist-btn danger" onclick="cleanupOldJobs()">
-                Cleanup Old Jobs
-            </button>
-        </div>
-    </div>
-
-    <!-- Filter Toolbar -->
-    <div class="filter-toolbar">
-        <div class="toolbar-grid">
-            <div class="search-box">
-                <input type="text" class="search-input" placeholder="Search by filename or job ID..." id="job-search" onkeyup="filterJobs()">
-                <button class="search-btn" onclick="filterJobs()">Search</button>
-            </div>
-            
-            <div class="sort-controls">
-                <span>Sort:</span>
-                <select class="sort-select" id="sort-select" onchange="sortJobs()">
-                    <option value="created_desc">Newest First</option>
-                    <option value="created_asc">Oldest First</option>
-                    <option value="filename_asc">Filename A-Z</option>
-                    <option value="filename_desc">Filename Z-A</option>
-                    <option value="status">Status</option>
-                    <option value="progress">Progress</option>
-                </select>
-            </div>
-            
+        <!-- Controls Block -->
+        <div class="brutalist-block controls-block">
             <div class="view-toggle">
-                <button class="view-btn active" onclick="setView('list')" data-view="list">☰</button>
-                <button class="view-btn" onclick="setView('grid')" data-view="grid">⊞</button>
+                <button class="view-btn active" data-view="grid" onclick="setView('grid')" aria-label="Grid View">
+                    <span>⊞</span>
+                </button>
+                <button class="view-btn" data-view="list" onclick="setView('list')" aria-label="List View">
+                    <span>☰</span>
+                </button>
             </div>
+            
+            <button class="brutalist-btn bulk-toggle" onclick="toggleBulkOperations()" id="bulk-toggle">
+                BULK OPERATIONS
+            </button>
+            
+            <button class="brutalist-btn success" onclick="location.href='/upload'">
+                NEW JOB
+            </button>
+            
+            <button class="brutalist-btn secondary" onclick="refreshJobs()">
+                REFRESH
+            </button>
         </div>
-    </div>
-
-    <!-- Bulk Operations Panel -->
-    <div class="bulk-operations" id="bulk-operations">
-        <div class="bulk-header">Bulk Operations (<span id="selected-count">0</span> selected)</div>
-        <div class="bulk-actions">
-            <button class="brutalist-btn secondary" onclick="selectAllJobs()">Select All</button>
-            <button class="brutalist-btn secondary" onclick="clearSelection()">Clear Selection</button>
-            <button class="brutalist-btn danger" onclick="deleteSelectedJobs()">Delete Selected</button>
-            <button class="brutalist-btn secondary" onclick="exportSelectedJobs()">Export Selected</button>
-        </div>
-    </div>
-
-    <!-- Jobs Container -->
-    <div class="jobs-container list-view" id="jobs-container">
-        {% if jobs %}
-            {% for job in jobs %}
-            <div class="job-card status-{{ job.status }}" data-job-id="{{ job.id }}" data-filename="{{ job.filename }}" data-status="{{ job.status }}">
-                <div class="job-header">
-                    <div class="job-filename">{{ job.filename }}</div>
-                    <div class="job-id">JOB_ID: {{ job.id[:8] }}...</div>
+        
+        <!-- Filters Block -->
+        <div class="brutalist-block filters-block">
+            <h2 class="field-label">Filter & Search</h2>
+            <div class="filters-grid">
+                <div class="field-group">
+                    <label class="field-label">Search Jobs</label>
+                    <input type="text" class="field-input" id="job-search" placeholder="Search by filename or job ID" onkeyup="filterJobs()">
                 </div>
                 
-                <div class="job-body">
-                    <div class="job-status {{ job.status }}">{{ job.status.upper() }}</div>
-                    
-                    {% if job.status in ['processing', 'queued'] %}
-                    <div class="job-progress">
-                        <div class="mini-progress">
-                            <div class="mini-progress-fill" style="width: {{ job.progress or 0 }}%;"></div>
-                        </div>
-                        <div class="progress-label">{{ job.progress or 0 }}% Complete</div>
-                    </div>
-                    {% endif %}
-                    
-                    <div class="job-metrics">
-                        <div class="metric-item">
-                            <div class="metric-value">{{ job.total_entities or '-' }}</div>
-                            <div class="metric-label">Entities</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-value">{{ job.successful_matches or '-' }}</div>
-                            <div class="metric-label">Matches</div>
-                        </div>
-                        <div class="metric-item">
-                            <div class="metric-value">{{ "{:.1f}".format((job.successful_matches / job.total_entities * 100) if job.total_entities and job.total_entities > 0 else 0) }}%</div>
-                            <div class="metric-label">Rate</div>
-                        </div>
-                    </div>
-                    
-                    <div class="job-meta">
-                        <div class="meta-row">
-                            <span class="meta-label">Created:</span>
-                            <span class="meta-value">{{ job.created_at[:19] | replace('T', ' ') if job.created_at else 'Unknown' }}</span>
-                        </div>
-                        {% if job.status == 'completed' and job.successful_matches %}
-                        <div class="meta-row">
-                            <span class="meta-label">Match Rate:</span>
-                            <span class="meta-value">{{ "{:.1f}".format((job.successful_matches / job.total_entities * 100) if job.total_entities else 0) }}%</span>
-                        </div>
-                        {% endif %}
-                        <div class="meta-row">
-                            <span class="meta-label">Processing:</span>
-                            <span class="meta-value">THREADED_MODE</span>
-                        </div>
-                    </div>
-                    
-                    <div class="job-actions">
-                        <input type="checkbox" class="job-select" data-job-id="{{ job.id }}" onchange="updateSelection()">
-                        
-                        {% if job.status == 'processing' or job.status == 'queued' %}
-                            <a href="{{ url_for('processing', job_id=job.id) }}" class="job-btn primary">Monitor</a>
-                            <button class="job-btn danger" onclick="cancelJob('{{ job.id }}')">Cancel</button>
-                        {% elif job.status == 'completed' %}
-                            <a href="{{ url_for('review', job_id=job.id) }}" class="job-btn success">Review</a>
-                            <a href="{{ url_for('export_page', job_id=job.id) }}" class="job-btn secondary">Export</a>
-                            <button class="job-btn secondary" onclick="reprocessJob('{{ job.id }}')">Reprocess</button>
-                        {% elif job.status == 'failed' %}
-                            <a href="{{ url_for('processing', job_id=job.id) }}" class="job-btn secondary">View Error</a>
-                            <button class="job-btn primary" onclick="retryJob('{{ job.id }}')">Retry</button>
-                        {% else %}
-                            <a href="{{ url_for('processing', job_id=job.id) }}" class="job-btn secondary">View Details</a>
-                        {% endif %}
-                        
-                        <button class="job-btn danger" onclick="deleteJob('{{ job.id }}')">Delete</button>
-                    </div>
+                <div class="field-group">
+                    <label class="field-label">Status Filter</label>
+                    <select class="field-select" id="status-filter" onchange="filterJobs()">
+                        <option value="">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
+                        <option value="completed">Completed</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                </div>
+                
+                <div class="field-group">
+                    <label class="field-label">Sort By</label>
+                    <select class="field-select" id="sort-select" onchange="sortJobs()">
+                        <option value="created_desc">Newest First</option>
+                        <option value="created_asc">Oldest First</option>
+                        <option value="filename_asc">Filename A-Z</option>
+                        <option value="filename_desc">Filename Z-A</option>
+                        <option value="status_asc">Status</option>
+                    </select>
+                </div>
+                
+                <button class="brutalist-btn secondary" onclick="clearFilters()">
+                    CLEAR
+                </button>
+            </div>
+        </div>
+        
+        <!-- Jobs Container -->
+        <div class="brutalist-block jobs-container">
+            <!-- Bulk Operations Panel -->
+            <div class="bulk-operations" id="bulk-operations">
+                <div class="bulk-header">
+                    <span id="selected-count">0</span> JOBS SELECTED
+                </div>
+                <div class="bulk-actions">
+                    <button class="brutalist-btn error" onclick="deleteSelectedJobs()">DELETE SELECTED</button>
+                    <button class="brutalist-btn warning" onclick="retrySelectedJobs()">RETRY SELECTED</button>
+                    <button class="brutalist-btn secondary" onclick="exportSelectedJobs()">EXPORT SELECTED</button>
+                    <button class="brutalist-btn secondary" onclick="clearSelection()">CLEAR SELECTION</button>
                 </div>
             </div>
-            {% endfor %}
-        {% else %}
-            <div class="no-jobs">
-                <span class="no-jobs-icon">▦</span>
-                <div class="no-jobs-title">No Processing Jobs Found</div>
-                <div class="no-jobs-text">You haven't uploaded any files for reconciliation yet. Start by uploading a CSV file containing metadata to reconcile.</div>
-                <a href="{{ url_for('upload') }}" class="brutalist-btn success">Start Your First Job</a>
+            
+            <!-- Jobs Grid -->
+            <div class="jobs-grid grid-view" id="jobs-grid">
+                {% if jobs %}
+                    {% for job in jobs %}
+                    <div class="job-card status-{{ job.status }}" 
+                         data-job-id="{{ job.id }}" 
+                         data-filename="{{ job.filename }}" 
+                         data-status="{{ job.status }}"
+                         data-created="{{ job.created_at }}">
+                        
+                        <div class="job-header">
+                            <div style="display: flex; align-items: start;">
+                                <input type="checkbox" class="job-select" value="{{ job.id }}" onchange="updateSelection()">
+                                <div>
+                                    <div class="job-filename">{{ job.filename }}</div>
+                                    <div class="job-id">JOB_{{ job.id }}</div>
+                                </div>
+                            </div>
+                            <div class="job-status {{ job.status }}">{{ job.status.upper() }}</div>
+                        </div>
+                        
+                        <div class="job-metrics">
+                            <div class="job-metric">
+                                <div class="metric-number">{{ job.total_records or 0 }}</div>
+                                <div class="metric-text">Records</div>
+                            </div>
+                            <div class="job-metric">
+                                <div class="metric-number">{{ job.matched_records or 0 }}</div>
+                                <div class="metric-text">Matched</div>
+                            </div>
+                            <div class="job-metric">
+                                <div class="metric-number">{{ job.failed_records or 0 }}</div>
+                                <div class="metric-text">Failed</div>
+                            </div>
+                            <div class="job-metric">
+                                <div class="metric-number">{{ ((job.matched_records or 0) / (job.total_records or 1) * 100) | round(1) }}%</div>
+                                <div class="metric-text">Success</div>
+                            </div>
+                        </div>
+                        
+                        {% if job.status == 'processing' %}
+                        <div class="job-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: {{ (job.progress or 0)|float }} %"></div>
+                            </div>
+                            <div class="progress-text">{{ job.progress or 0 }}% Complete</div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="job-actions">
+                            {% if job.status == 'completed' %}
+                                <a href="{{ url_for('export_job', job_id=job.id) }}" class="brutalist-btn job-btn success">EXPORT</a>
+                                <a href="{{ url_for('review_job', job_id=job.id) }}" class="brutalist-btn job-btn secondary">REVIEW</a>
+                            {% elif job.status == 'failed' %}
+                                <button class="brutalist-btn job-btn warning" onclick="retryJob('{{ job.id }}')">RETRY</button>
+                                <button class="brutalist-btn job-btn secondary" onclick="viewLogs('{{ job.id }}')">LOGS</button>
+                            {% elif job.status == 'processing' %}
+                                <a href="{{ url_for('processing', job_id=job.id) }}" class="brutalist-btn job-btn">VIEW</a>
+                                <button class="brutalist-btn job-btn warning" onclick="cancelJob('{{ job.id }}')">CANCEL</button>
+                            {% else %}
+                                <button class="brutalist-btn job-btn" onclick="startJob('{{ job.id }}')">START</button>
+                            {% endif %}
+                            <button class="brutalist-btn job-btn error" onclick="deleteJob('{{ job.id }}')">DELETE</button>
+                        </div>
+                        
+                        <div class="job-timestamp">
+                            Created: {{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') if job.created_at else 'Unknown' }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-icon">⚙</div>
+                        <div class="empty-title">No Jobs Found</div>
+                        <div class="empty-text">Start by uploading a metadata file to create your first reconciliation job.</div>
+                        <a href="{{ url_for('upload') }}" class="brutalist-btn">CREATE FIRST JOB</a>
+                    </div>
+                {% endif %}
             </div>
-        {% endif %}
-    </div>
-
-    <!-- System Statistics Footer -->
-    {% if jobs %}
-    <div class="brutalist-block">
-        <h2 class="system-title">System Statistics</h2>
-        <div class="status-grid">
-            <div class="status-card">
-                <div class="status-value">{{ jobs | map(attribute='total_entities') | select | sum }}</div>
-                <div class="status-label">Total Entities Processed</div>
+        </div>
+        
+        <!-- Pagination Block -->
+        <div class="brutalist-block pagination-block">
+            <div class="pagination-info">
+                Showing <span id="jobs-start">1</span>-<span id="jobs-end">{{ jobs | length }}</span> of <span id="jobs-total">{{ jobs | length }}</span> jobs
             </div>
-            <div class="status-card">
-                <div class="status-value">{{ jobs | map(attribute='successful_matches') | select | sum }}</div>
-                <div class="status-label">Total Matches Found</div>
-            </div>
-            <div class="status-card">
-                <div class="status-value">{{ jobs | length }}</div>
-                <div class="status-label">Jobs Completed</div>
-            </div>
-            <div class="status-card">
-                <div class="status-value">{{ "{:.1f}".format(((jobs | map(attribute='successful_matches') | select | sum) / (jobs | map(attribute='total_entities') | select | sum) * 100) if (jobs | map(attribute='total_entities') | select | sum) > 0 else 0) }}%</div>
-                <div class="status-label">Overall Match Rate</div>
+            <div class="pagination-controls">
+                <button class="brutalist-btn pagination-btn" onclick="previousPage()" id="prev-btn">‹</button>
+                <span class="pagination-info">Page <span id="current-page">1</span></span>
+                <button class="brutalist-btn pagination-btn" onclick="nextPage()" id="next-btn">›</button>
             </div>
         </div>
     </div>
-    {% endif %}
 </div>
-{% endblock %}
 
-{% block scripts %}
 <script>
-    // Brutalist Jobs Management System
     class JobsManager {
         constructor() {
+            this.currentView = localStorage.getItem('jobsView') || 'grid';
             this.selectedJobs = new Set();
-            this.currentView = 'list';
-            this.init();
+            this.currentPage = 1;
+            this.itemsPerPage = 20;
+            
+            this.initializeView();
+            this.setupEventListeners();
+            this.setupKeyboardShortcuts();
+            this.startAutoRefresh();
         }
         
-        init() {
-            // Restore view preference
-            const savedView = localStorage.getItem('jobsView') || 'list';
-            this.setView(savedView);
-            
-            // Initialize selection
+        initializeView() {
+            this.setView(this.currentView);
             this.updateSelection();
+        }
+        
+        setupEventListeners() {
+            // Real-time search
+            const searchInput = document.getElementById('job-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', () => this.filterJobs());
+            }
             
-            // Start auto-refresh for processing jobs
-            setInterval(() => this.autoRefreshProcessingJobs(), 5000);
-            
-            // Keyboard shortcuts
-            this.setupKeyboardShortcuts();
-            
-            console.log('🔧 Brutalist Jobs Manager initialized');
+            // Checkbox change events
+            document.addEventListener('change', (e) => {
+                if (e.target.classList.contains('job-select')) {
+                    this.updateSelection();
+                }
+            });
         }
         
         setView(view) {
-            const container = document.getElementById('jobs-container');
+            const container = document.getElementById('jobs-grid');
             const buttons = document.querySelectorAll('.view-btn');
             
             // Update container class
-            container.className = `jobs-container ${view}-view`;
+            container.className = `jobs-grid ${view}-view`;
             
             // Update button states
             buttons.forEach(btn => {
@@ -1142,13 +976,18 @@
         
         filterJobs() {
             const searchTerm = document.getElementById('job-search').value.toLowerCase();
+            const statusFilter = document.getElementById('status-filter').value;
             const jobCards = document.querySelectorAll('.job-card');
             let visibleCount = 0;
             
             jobCards.forEach(card => {
                 const filename = card.dataset.filename.toLowerCase();
                 const jobId = card.dataset.jobId.toLowerCase();
-                const isVisible = filename.includes(searchTerm) || jobId.includes(searchTerm);
+                const status = card.dataset.status;
+                
+                const matchesSearch = filename.includes(searchTerm) || jobId.includes(searchTerm);
+                const matchesStatus = !statusFilter || status === statusFilter;
+                const isVisible = matchesSearch && matchesStatus;
                 
                 card.style.display = isVisible ? 'block' : 'none';
                 if (isVisible) visibleCount++;
@@ -1159,25 +998,21 @@
         
         sortJobs() {
             const sortBy = document.getElementById('sort-select').value;
-            const container = document.getElementById('jobs-container');
+            const container = document.getElementById('jobs-grid');
             const cards = Array.from(container.querySelectorAll('.job-card'));
             
             cards.sort((a, b) => {
-                switch(sortBy) {
+                switch (sortBy) {
                     case 'created_desc':
-                        return new Date(b.querySelector('.meta-value').textContent) - new Date(a.querySelector('.meta-value').textContent);
+                        return new Date(b.dataset.created) - new Date(a.dataset.created);
                     case 'created_asc':
-                        return new Date(a.querySelector('.meta-value').textContent) - new Date(b.querySelector('.meta-value').textContent);
+                        return new Date(a.dataset.created) - new Date(b.dataset.created);
                     case 'filename_asc':
                         return a.dataset.filename.localeCompare(b.dataset.filename);
                     case 'filename_desc':
                         return b.dataset.filename.localeCompare(a.dataset.filename);
-                    case 'status':
+                    case 'status_asc':
                         return a.dataset.status.localeCompare(b.dataset.status);
-                    case 'progress':
-                        const progressA = parseInt(a.querySelector('.mini-progress-fill')?.style.width) || 0;
-                        const progressB = parseInt(b.querySelector('.mini-progress-fill')?.style.width) || 0;
-                        return progressB - progressA;
                     default:
                         return 0;
                 }
@@ -1187,190 +1022,170 @@
             cards.forEach(card => container.appendChild(card));
         }
         
+        clearFilters() {
+            document.getElementById('job-search').value = '';
+            document.getElementById('status-filter').value = '';
+            document.getElementById('sort-select').value = 'created_desc';
+            this.filterJobs();
+            this.sortJobs();
+        }
+        
         updateSelection() {
             const checkboxes = document.querySelectorAll('.job-select');
-            this.selectedJobs.clear();
+            const bulkOps = document.getElementById('bulk-operations');
+            const selectedCount = document.getElementById('selected-count');
             
-            checkboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    this.selectedJobs.add(checkbox.dataset.jobId);
+            this.selectedJobs.clear();
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    this.selectedJobs.add(cb.value);
+                    cb.closest('.job-card').classList.add('selected');
+                } else {
+                    cb.closest('.job-card').classList.remove('selected');
                 }
             });
             
-            document.getElementById('selected-count').textContent = this.selectedJobs.size;
+            selectedCount.textContent = this.selectedJobs.size;
             
-            // Show/hide bulk operations panel
-            const bulkPanel = document.getElementById('bulk-operations');
             if (this.selectedJobs.size > 0) {
-                bulkPanel.classList.add('show');
+                bulkOps.classList.add('show');
             } else {
-                bulkPanel.classList.remove('show');
+                bulkOps.classList.remove('show');
             }
         }
         
         selectAllJobs() {
-            const checkboxes = document.querySelectorAll('.job-select');
-            checkboxes.forEach(checkbox => {
-                if (checkbox.closest('.job-card').style.display !== 'none') {
-                    checkbox.checked = true;
-                }
+            const checkboxes = document.querySelectorAll('.job-select:not(:disabled)');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            
+            checkboxes.forEach(cb => {
+                cb.checked = !allChecked;
             });
+            
             this.updateSelection();
         }
         
         clearSelection() {
-            const checkboxes = document.querySelectorAll('.job-select');
-            checkboxes.forEach(checkbox => checkbox.checked = false);
+            document.querySelectorAll('.job-select').forEach(cb => {
+                cb.checked = false;
+            });
             this.updateSelection();
         }
         
-        autoRefreshProcessingJobs() {
-            const processingCards = document.querySelectorAll('.job-card.status-processing');
-            processingCards.forEach(card => {
-                const jobId = card.dataset.jobId;
-                
-                // In a real implementation, this would make an API call to check job status
-                // For demo purposes, we'll simulate progress updates
-                const progressFill = card.querySelector('.mini-progress-fill');
-                const progressLabel = card.querySelector('.progress-label');
-                if (progressFill && progressLabel) {
-                    const currentProgress = parseInt(progressFill.style.width) || 0;
-                    const newProgress = Math.min(currentProgress + Math.random() * 3, 100);
-                    
-                    progressFill.style.width = newProgress + '%';
-                    progressLabel.textContent = Math.floor(newProgress) + '% Complete';
-                    
-                    if (newProgress >= 100) {
-                        // Job completed
-                        this.completeJob(card, jobId);
-                    }
-                }
-            });
-        }
-        
-        completeJob(card, jobId) {
-            card.className = card.className.replace('status-processing', 'status-completed');
-            const statusEl = card.querySelector('.job-status');
-            statusEl.textContent = 'COMPLETED';
-            statusEl.className = 'job-status completed';
+        toggleBulkOperations() {
+            const bulkOps = document.getElementById('bulk-operations');
+            const toggle = document.getElementById('bulk-toggle');
             
-            // Update actions
-            const actionsContainer = card.querySelector('.job-actions');
-            actionsContainer.innerHTML = `
-                <input type="checkbox" class="job-select" data-job-id="${jobId}" onchange="jobsManager.updateSelection()">
-                <a href="/review/${jobId}" class="job-btn success">Review</a>
-                <a href="/export/${jobId}" class="job-btn secondary">Export</a>
-                <button class="job-btn secondary" onclick="jobsManager.reprocessJob('${jobId}')">Reprocess</button>
-                <button class="job-btn danger" onclick="jobsManager.deleteJob('${jobId}')">Delete</button>
-            `;
-            
-            this.showAlert('success', `Job ${jobId.substring(0, 8)}... completed successfully!`);
+            bulkOps.classList.toggle('show');
+            toggle.classList.toggle('active');
         }
         
         deleteJob(jobId) {
             if (confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
-                this.showAlert('success', `Job ${jobId.substring(0, 8)}... marked for deletion`);
-                
-                const jobCard = document.querySelector(`[data-job-id="${jobId}"]`);
-                if (jobCard) {
-                    jobCard.style.opacity = '0.5';
-                    jobCard.style.pointerEvents = 'none';
-                    setTimeout(() => jobCard.remove(), 1000);
-                }
+                fetch(`/api/jobs/${jobId}`, { method: 'DELETE' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            document.querySelector(`[data-job-id="${jobId}"]`).remove();
+                            this.updateMetrics();
+                        }
+                    })
+                    .catch(error => console.error('Error deleting job:', error));
             }
         }
         
         deleteSelectedJobs() {
-            if (this.selectedJobs.size === 0) {
-                this.showAlert('error', 'No jobs selected for deletion');
-                return;
-            }
+            if (this.selectedJobs.size === 0) return;
             
-            const confirmMsg = `Delete ${this.selectedJobs.size} selected jobs? This action cannot be undone.`;
-            if (confirm(confirmMsg)) {
-                this.selectedJobs.forEach(jobId => {
-                    const jobCard = document.querySelector(`[data-job-id="${jobId}"]`);
-                    if (jobCard) {
-                        jobCard.style.opacity = '0.5';
-                        jobCard.style.pointerEvents = 'none';
-                        setTimeout(() => jobCard.remove(), 1000);
-                    }
+            if (confirm(`Delete ${this.selectedJobs.size} selected jobs? This action cannot be undone.`)) {
+                Promise.all(
+                    Array.from(this.selectedJobs).map(jobId =>
+                        fetch(`/api/jobs/${jobId}`, { method: 'DELETE' })
+                    )
+                ).then(() => {
+                    this.selectedJobs.forEach(jobId => {
+                        document.querySelector(`[data-job-id="${jobId}"]`)?.remove();
+                    });
+                    this.clearSelection();
+                    this.updateMetrics();
                 });
-                
-                this.showAlert('success', `${this.selectedJobs.size} jobs marked for deletion`);
-                this.clearSelection();
-            }
-        }
-        
-        cancelJob(jobId) {
-            if (confirm('Cancel this processing job?')) {
-                this.showAlert('success', `Job ${jobId.substring(0, 8)}... cancellation requested`);
-                
-                const jobCard = document.querySelector(`[data-job-id="${jobId}"]`);
-                if (jobCard) {
-                    const statusEl = jobCard.querySelector('.job-status');
-                    statusEl.textContent = 'CANCELLING';
-                    statusEl.className = 'job-status failed';
-                }
             }
         }
         
         retryJob(jobId) {
-            this.showAlert('success', `Job ${jobId.substring(0, 8)}... queued for retry`);
-            
-            const jobCard = document.querySelector(`[data-job-id="${jobId}"]`);
-            if (jobCard) {
-                const statusEl = jobCard.querySelector('.job-status');
-                statusEl.textContent = 'QUEUED';
-                statusEl.className = 'job-status uploaded';
+            fetch(`/api/jobs/${jobId}/retry`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    }
+                })
+                .catch(error => console.error('Error retrying job:', error));
+        }
+        
+        cancelJob(jobId) {
+            if (confirm('Cancel this job?')) {
+                fetch(`/api/jobs/${jobId}/cancel`, { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        }
+                    })
+                    .catch(error => console.error('Error canceling job:', error));
             }
         }
         
-        reprocessJob(jobId) {
-            if (confirm('Reprocess this job with the same settings?')) {
-                this.showAlert('success', `Job ${jobId.substring(0, 8)}... queued for reprocessing`);
-            }
-        }
-        
-        exportSelectedJobs() {
-            if (this.selectedJobs.size === 0) {
-                this.showAlert('error', 'No jobs selected for export');
-                return;
-            }
-            
-            this.showAlert('success', `Exporting ${this.selectedJobs.size} job reports...`);
-        }
-        
-        cleanupOldJobs() {
-            if (confirm('Delete all failed and completed jobs older than 30 days?')) {
-                this.showAlert('success', 'Cleanup process initiated - old jobs will be removed');
-            }
+        startJob(jobId) {
+            fetch(`/api/jobs/${jobId}/start`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.href = `/processing/${jobId}`;
+                    }
+                })
+                .catch(error => console.error('Error starting job:', error));
         }
         
         refreshJobs() {
-            this.showAlert('success', 'Refreshing job status...');
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
+            location.reload();
         }
         
-        toggleBulkOperations() {
-            const panel = document.getElementById('bulk-operations');
-            panel.classList.toggle('show');
+        updateMetrics() {
+            // Update the metrics counters
+            fetch('/api/jobs/metrics')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('total-jobs').textContent = data.total;
+                    document.getElementById('active-jobs').textContent = data.processing;
+                    document.getElementById('completed-jobs').textContent = data.completed;
+                    document.getElementById('failed-jobs').textContent = data.failed;
+                })
+                .catch(error => console.error('Error updating metrics:', error));
         }
         
-        showAlert(type, message) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert ${type}`;
-            alertDiv.innerHTML = `
-                <div class="alert-title">${type.toUpperCase()}</div>
-                ${message}
-            `;
-            
-            const container = document.querySelector('.brutalist-container');
-            container.insertBefore(alertDiv, container.children[1]);
-            
-            setTimeout(() => alertDiv.remove(), type === 'error' ? 5000 : 3000);
+        startAutoRefresh() {
+            setInterval(() => {
+                this.updateMetrics();
+                
+                // Update processing job progress
+                document.querySelectorAll('.job-card.status-processing').forEach(card => {
+                    const jobId = card.dataset.jobId;
+                    fetch(`/api/jobs/${jobId}/progress`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.progress !== undefined) {
+                                const progressBar = card.querySelector('.progress-fill');
+                                const progressText = card.querySelector('.progress-text');
+                                if (progressBar) {
+                                    progressBar.style.width = `${data.progress}%`;
+                                    progressText.textContent = `${data.progress}% Complete`;
+                                }
+                            }
+                        })
+                        .catch(error => console.error('Error updating progress:', error));
+                });
+            }, 5000); // Update every 5 seconds
         }
         
         setupKeyboardShortcuts() {
@@ -1391,11 +1206,11 @@
                             break;
                         case '1':
                             e.preventDefault();
-                            this.setView('list');
+                            this.setView('grid');
                             break;
                         case '2':
                             e.preventDefault();
-                            this.setView('grid');
+                            this.setView('list');
                             break;
                     }
                 }
@@ -1425,10 +1240,29 @@
     function deleteSelectedJobs() { jobsManager.deleteSelectedJobs(); }
     function cancelJob(jobId) { jobsManager.cancelJob(jobId); }
     function retryJob(jobId) { jobsManager.retryJob(jobId); }
-    function reprocessJob(jobId) { jobsManager.reprocessJob(jobId); }
-    function exportSelectedJobs() { jobsManager.exportSelectedJobs(); }
-    function cleanupOldJobs() { jobsManager.cleanupOldJobs(); }
+    function startJob(jobId) { jobsManager.startJob(jobId); }
     function refreshJobs() { jobsManager.refreshJobs(); }
     function toggleBulkOperations() { jobsManager.toggleBulkOperations(); }
+    function clearFilters() { jobsManager.clearFilters(); }
+    function viewLogs(jobId) { 
+        window.open(`/logs/${jobId}`, '_blank');
+    }
+    function retrySelectedJobs() {
+        if (jobsManager.selectedJobs.size === 0) return;
+        
+        Promise.all(
+            Array.from(jobsManager.selectedJobs).map(jobId =>
+                fetch(`/api/jobs/${jobId}/retry`, { method: 'POST' })
+            )
+        ).then(() => {
+            location.reload();
+        });
+    }
+    function exportSelectedJobs() {
+        if (jobsManager.selectedJobs.size === 0) return;
+        
+        const jobIds = Array.from(jobsManager.selectedJobs).join(',');
+        window.open(`/export/bulk?jobs=${jobIds}`, '_blank');
+    }
 </script>
 {% endblock %}

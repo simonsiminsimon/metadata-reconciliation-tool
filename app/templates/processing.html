@@ -4,15 +4,25 @@
 
 {% block content %}
 <style>
+    /* Import brutalist fonts */
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
     
     :root {
+        /* Brutalist Color System */
         --primary-white: #FAFAFA;
         --structure-black: #1A1A1A;
         --accent-blue: #0066FF;
         --system-gray: #808080;
+        --success-green: #00CC44;
+        --warning-orange: #FF8800;
+        --error-red: #FF3333;
+        
+        /* Brutalist Grid */
         --grid-gap: 16px;
         --border-width: 2px;
+        --shadow-offset: 4px;
+        
+        /* Typography */
         --font-mono: 'JetBrains Mono', monospace;
         --font-sans: 'Inter', sans-serif;
     }
@@ -31,6 +41,7 @@
         min-height: 100vh;
     }
     
+    /* Reset base styles for brutalist override */
     .card { display: none; }
     
     .brutalist-container {
@@ -38,36 +49,70 @@
         margin: 0 auto;
         padding: var(--grid-gap);
         min-height: 100vh;
+        background: var(--primary-white);
     }
     
-    .processing-grid {
+    /* Processing Bento Grid Layout */
+    .processing-bento-grid {
         display: grid;
         grid-template-columns: repeat(12, 1fr);
         grid-template-rows: auto;
         gap: var(--grid-gap);
         grid-template-areas:
-            "header header header header header status status status controls controls controls controls"
+            "header header header header header header status status status controls controls controls"
+            "pipeline pipeline pipeline pipeline pipeline pipeline pipeline pipeline pipeline pipeline pipeline pipeline"
             "progress progress progress progress progress progress progress progress progress progress progress progress"
-            "metrics metrics metrics metrics logs logs logs logs logs logs logs logs"
-            "details details details details details details details details details details details details";
+            "metrics metrics metrics metrics metrics logs logs logs logs logs logs logs"
+            "config config config config config config config config config config config config";
     }
     
+    /* Brutalist Block Foundation */
     .brutalist-block {
         background: var(--primary-white);
         border: var(--border-width) solid var(--structure-black);
-        padding: 24px;
         position: relative;
+        transition: all 0.2s ease;
+        padding: 24px;
     }
     
     .brutalist-block::before {
         content: '';
         position: absolute;
-        top: 4px;
-        left: 4px;
-        right: -4px;
-        bottom: -4px;
+        top: var(--shadow-offset);
+        left: var(--shadow-offset);
+        right: calc(-1 * var(--shadow-offset));
+        bottom: calc(-1 * var(--shadow-offset));
         background: var(--structure-black);
         z-index: -1;
+    }
+    
+    .brutalist-block:hover::before {
+        background: var(--accent-blue);
+    }
+    
+    /* Special status block styling */
+    .status-block {
+        background: var(--warning-orange);
+        color: var(--primary-white);
+        border-color: var(--structure-black);
+    }
+    
+    .status-block.completed {
+        background: var(--success-green);
+    }
+    
+    .status-block.failed {
+        background: var(--error-red);
+    }
+    
+    .status-block.processing {
+        background: var(--warning-orange);
+        animation: pulseStatus 2s infinite;
+    }
+    
+    @keyframes pulseStatus {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
     }
     
     /* Header Block */
@@ -77,45 +122,50 @@
     
     .job-title {
         font-family: var(--font-mono);
-        font-size: 20px;
+        font-size: clamp(18px, 4vw, 24px);
         font-weight: 700;
-        text-transform: uppercase;
         margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--structure-black);
+        word-break: break-all;
     }
     
     .job-subtitle {
-        font-size: 12px;
-        color: var(--system-gray);
         font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--system-gray);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
     /* Status Block */
     .status-block {
         grid-area: status;
-        background: var(--accent-blue);
-        color: var(--primary-white);
     }
     
     .status-current {
         font-family: var(--font-mono);
-        font-size: 14px;
-        font-weight: 500;
+        font-size: 16px;
+        font-weight: 700;
         text-transform: uppercase;
         margin-bottom: 8px;
+        letter-spacing: 1px;
     }
     
     .status-timestamp {
-        font-size: 11px;
-        opacity: 0.8;
         font-family: var(--font-mono);
+        font-size: 10px;
+        opacity: 0.9;
+        text-transform: uppercase;
     }
     
     /* Controls Block */
     .controls-block {
         grid-area: controls;
         display: flex;
-        gap: 12px;
-        align-items: center;
+        flex-direction: column;
+        gap: 8px;
     }
     
     .control-btn {
@@ -125,12 +175,179 @@
         padding: 12px 16px;
         font-family: var(--font-mono);
         font-size: 10px;
+        font-weight: 600;
         text-transform: uppercase;
+        letter-spacing: 1px;
         cursor: pointer;
         position: relative;
+        transition: all 0.1s ease;
     }
     
     .control-btn::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        right: -3px;
+        bottom: -3px;
+        background: var(--system-gray);
+        z-index: -1;
+        transition: all 0.1s ease;
+    }
+    
+    .control-btn:hover::before {
+        background: var(--accent-blue);
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+    }
+    
+    .control-btn:active {
+        transform: translate(2px, 2px);
+    }
+    
+    .control-btn:active::before {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+    
+    .control-btn.danger {
+        background: var(--error-red);
+    }
+    
+    .control-btn.warning {
+        background: var(--warning-orange);
+    }
+    
+    /* Pipeline Block */
+    .pipeline-block {
+        grid-area: pipeline;
+    }
+    
+    .pipeline-title {
+        font-family: var(--font-mono);
+        font-size: 16px;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-bottom: 20px;
+        letter-spacing: 1px;
+        color: var(--structure-black);
+    }
+    
+    .pipeline-stages {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+    }
+    
+    .stage-item {
+        padding: 16px;
+        border: var(--border-width) solid var(--system-gray);
+        background: var(--primary-white);
+        text-align: center;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    .stage-item::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+        background: var(--system-gray);
+        z-index: -1;
+        transition: all 0.3s ease;
+    }
+    
+    .stage-item.completed {
+        background: var(--success-green);
+        color: var(--primary-white);
+        border-color: var(--structure-black);
+    }
+    
+    .stage-item.completed::before {
+        background: var(--structure-black);
+    }
+    
+    .stage-item.active {
+        background: var(--warning-orange);
+        color: var(--primary-white);
+        border-color: var(--structure-black);
+        animation: pulseStage 1.5s infinite;
+    }
+    
+    .stage-item.active::before {
+        background: var(--accent-blue);
+    }
+    
+    @keyframes pulseStage {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+    }
+    
+    .stage-icon {
+        display: block;
+        font-size: 24px;
+        margin-bottom: 8px;
+    }
+    
+    .stage-name {
+        display: block;
+        line-height: 1.2;
+    }
+    
+    /* Progress Block */
+    .progress-block {
+        grid-area: progress;
+    }
+    
+    .progress-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+    
+    .progress-title {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .progress-percentage {
+        font-family: var(--font-mono);
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--accent-blue);
+    }
+    
+    .progress-bar-container {
+        position: relative;
+        margin-bottom: 16px;
+    }
+    
+    .progress-bar {
+        width: 100%;
+        height: 32px;
+        border: var(--border-width) solid var(--structure-black);
+        background: var(--primary-white);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .progress-bar::before {
         content: '';
         position: absolute;
         top: 2px;
@@ -141,88 +358,55 @@
         z-index: -1;
     }
     
-    .control-btn:hover::before {
-        background: var(--accent-blue);
-    }
-    
-    /* Progress Block */
-    .progress-block {
-        grid-area: progress;
-        min-height: 200px;
-    }
-    
-    .progress-title {
-        font-family: var(--font-mono);
-        font-size: 16px;
-        font-weight: 700;
-        text-transform: uppercase;
-        margin-bottom: 24px;
-    }
-    
-    .progress-container {
-        margin-bottom: 24px;
-    }
-    
-    .progress-label {
-        font-family: var(--font-mono);
-        font-size: 12px;
-        margin-bottom: 8px;
-        display: flex;
-        justify-content: space-between;
-    }
-    
-    .progress-bar {
-        width: 100%;
-        height: 24px;
-        border: var(--border-width) solid var(--structure-black);
-        background: var(--primary-white);
-        position: relative;
-        overflow: hidden;
-    }
-    
     .progress-fill {
         height: 100%;
-        background: var(--accent-blue);
+        background: linear-gradient(90deg, var(--accent-blue) 0%, var(--success-green) 100%);
         width: 0%;
-        transition: width 0.3s ease;
+        transition: width 0.5s ease;
         position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     
-    .progress-fill::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 4px;
-        height: 100%;
-        background: var(--structure-black);
+    .progress-text {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--primary-white);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-shadow: 1px 1px 0 var(--structure-black);
     }
     
-    .progress-stages {
+    .progress-stats {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 8px;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
         margin-top: 16px;
     }
     
-    .stage-item {
+    .progress-stat {
+        text-align: center;
         padding: 12px;
         border: 1px solid var(--system-gray);
-        text-align: center;
+        background: var(--primary-white);
+    }
+    
+    .stat-value {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--accent-blue);
+        margin-bottom: 4px;
+    }
+    
+    .stat-label {
+        font-family: var(--font-mono);
+        font-size: 9px;
         text-transform: uppercase;
-    }
-    
-    .stage-item.active {
-        background: var(--accent-blue);
-        color: var(--primary-white);
-        border-color: var(--structure-black);
-    }
-    
-    .stage-item.completed {
-        background: var(--structure-black);
-        color: var(--primary-white);
+        letter-spacing: 0.5px;
+        color: var(--system-gray);
     }
     
     /* Metrics Block */
@@ -234,20 +418,35 @@
         display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: 16px;
+        margin-top: 16px;
     }
     
-    .metric-item {
+    .metric-card {
+        background: var(--structure-black);
+        color: var(--primary-white);
+        padding: 20px;
         text-align: center;
-        padding: 16px;
-        border: 1px solid var(--system-gray);
+        position: relative;
+        border: var(--border-width) solid var(--structure-black);
+    }
+    
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        right: -3px;
+        bottom: -3px;
+        background: var(--accent-blue);
+        z-index: -1;
     }
     
     .metric-value {
         font-family: var(--font-mono);
-        font-size: 32px;
+        font-size: 28px;
         font-weight: 700;
-        color: var(--accent-blue);
         margin-bottom: 8px;
+        color: var(--primary-white);
     }
     
     .metric-label {
@@ -255,11 +454,50 @@
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 1px;
+        opacity: 0.9;
+    }
+    
+    .metric-change {
+        font-family: var(--font-mono);
+        font-size: 8px;
+        margin-top: 4px;
+        opacity: 0.7;
     }
     
     /* Logs Block */
     .logs-block {
         grid-area: logs;
+    }
+    
+    .logs-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+    
+    .logs-title {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .logs-controls {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .log-btn {
+        padding: 6px 12px;
+        font-size: 8px;
+        background: var(--system-gray);
+        color: var(--primary-white);
+        border: none;
+        font-family: var(--font-mono);
+        text-transform: uppercase;
+        cursor: pointer;
     }
     
     .logs-container {
@@ -271,246 +509,437 @@
         font-size: 11px;
         padding: 12px;
         overflow-y: auto;
+        position: relative;
+    }
+    
+    .logs-container::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+        background: var(--system-gray);
+        z-index: -1;
     }
     
     .log-entry {
-        margin-bottom: 4px;
+        margin-bottom: 6px;
         display: flex;
         gap: 8px;
+        align-items: flex-start;
+        line-height: 1.3;
     }
     
     .log-timestamp {
         color: var(--system-gray);
         flex-shrink: 0;
+        font-size: 9px;
     }
     
     .log-level {
         flex-shrink: 0;
         width: 50px;
+        font-weight: 600;
+        font-size: 9px;
     }
     
     .log-level.info { color: var(--accent-blue); }
-    .log-level.success { color: #00FF00; }
-    .log-level.warning { color: #FFA500; }
-    .log-level.error { color: #FF0000; }
+    .log-level.success { color: var(--success-green); }
+    .log-level.warning { color: var(--warning-orange); }
+    .log-level.error { color: var(--error-red); }
     
-    /* Details Block */
-    .details-block {
-        grid-area: details;
+    .log-message {
+        flex: 1;
+        word-break: break-word;
     }
     
-    .details-grid {
+    /* Configuration Block */
+    .config-block {
+        grid-area: config;
+    }
+    
+    .config-grid {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 16px;
+        margin-top: 16px;
     }
     
-    .detail-section {
+    .config-section {
         padding: 16px;
         border: 1px solid var(--system-gray);
+        background: var(--primary-white);
     }
     
-    .detail-title {
+    .config-title {
         font-family: var(--font-mono);
         font-size: 12px;
         font-weight: 700;
         text-transform: uppercase;
         margin-bottom: 12px;
+        letter-spacing: 0.5px;
+        color: var(--structure-black);
     }
     
-    .detail-item {
+    .config-item {
         display: flex;
         justify-content: space-between;
         margin-bottom: 8px;
         font-size: 11px;
     }
     
-    .detail-key {
+    .config-key {
         font-family: var(--font-mono);
         color: var(--system-gray);
+        font-size: 9px;
+        text-transform: uppercase;
     }
     
-    .detail-value {
-        font-weight: 500;
+    .config-value {
+        font-weight: 600;
+        font-family: var(--font-mono);
+        font-size: 10px;
     }
     
-    /* Responsive */
+    /* Live indicator */
+    .live-indicator {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--success-green);
+        color: var(--primary-white);
+        padding: 8px 12px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        border: var(--border-width) solid var(--structure-black);
+        z-index: 1000;
+        animation: livePulse 2s infinite;
+    }
+    
+    .live-indicator::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+        background: var(--structure-black);
+        z-index: -1;
+    }
+    
+    @keyframes livePulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    
+    /* Responsive Design */
     @media (max-width: 1024px) {
-        .processing-grid {
-            grid-template-columns: repeat(8, 1fr);
+        .processing-bento-grid {
             grid-template-areas:
-                "header header header header status status status status"
-                "controls controls controls controls controls controls controls controls"
-                "progress progress progress progress progress progress progress progress"
-                "metrics metrics metrics metrics logs logs logs logs"
-                "details details details details details details details details";
+                "header header header header header header header header header header header header"
+                "status status status status controls controls controls controls controls controls controls controls"
+                "pipeline pipeline pipeline pipeline pipeline pipeline pipeline pipeline pipeline pipeline pipeline pipeline"
+                "progress progress progress progress progress progress progress progress progress progress progress progress"
+                "metrics metrics metrics metrics metrics logs logs logs logs logs logs logs"
+                "config config config config config config config config config config config config";
+        }
+        
+        .pipeline-stages {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .controls-block {
+            flex-direction: row;
         }
     }
     
     @media (max-width: 768px) {
-        .processing-grid {
-            grid-template-columns: repeat(4, 1fr);
+        .processing-bento-grid {
+            grid-template-columns: repeat(6, 1fr);
             grid-template-areas:
-                "header header header header"
-                "status status status status"
-                "controls controls controls controls"
-                "progress progress progress progress"
-                "metrics metrics metrics metrics"
-                "logs logs logs logs"
-                "details details details details";
+                "header header header header header header"
+                "status status status status status status"
+                "controls controls controls controls controls controls"
+                "pipeline pipeline pipeline pipeline pipeline pipeline"
+                "progress progress progress progress progress progress"
+                "metrics metrics metrics metrics metrics metrics"
+                "logs logs logs logs logs logs"
+                "config config config config config config";
+        }
+        
+        .pipeline-stages {
+            grid-template-columns: 1fr;
         }
         
         .metrics-grid {
             grid-template-columns: 1fr;
         }
         
-        .details-grid {
+        .config-grid {
             grid-template-columns: 1fr;
         }
         
-        .progress-stages {
-            grid-template-columns: repeat(2, 1fr);
+        .progress-stats {
+            grid-template-columns: 1fr;
+        }
+        
+        .controls-block {
+            flex-direction: column;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .job-title {
+            font-size: 16px;
+        }
+        
+        .live-indicator {
+            position: relative;
+            top: auto;
+            right: auto;
+            margin-bottom: 16px;
+            display: block;
+            text-align: center;
+        }
+    }
+    
+    /* High contrast mode */
+    @media (prefers-contrast: high) {
+        :root {
+            --primary-white: #FFFFFF;
+            --structure-black: #000000;
+            --system-gray: #666666;
+            --accent-blue: #0033CC;
+        }
+    }
+    
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
         }
     }
 </style>
 
 <div class="brutalist-container">
-    <div class="processing-grid">
+    <!-- Live indicator -->
+    <div class="live-indicator" id="live-indicator">● LIVE</div>
+    
+    <div class="processing-bento-grid">
         <!-- Header Block -->
         <div class="brutalist-block header-block">
-            <h1 class="job-title">Processing Job: {{ job.filename }}</h1>
-            <p class="job-subtitle">ENTITY_RECONCILIATION_PIPELINE_ACTIVE</p>
+            <h1 class="job-title">Processing: {{ job.filename }}</h1>
+            <p class="job-subtitle">Entity_Reconciliation_Pipeline_Active</p>
         </div>
         
         <!-- Status Block -->
-        <div class="brutalist-block status-block">
+        <div class="brutalist-block status-block processing" id="status-block">
             <div class="status-current" id="current-status">PROCESSING</div>
-            <div class="status-timestamp" id="status-timestamp">STARTED: {{ job.created_at[:19] }}</div>
+            <div class="status-timestamp" id="status-timestamp">Started: {{ job.created_at.strftime('%H:%M:%S') if job.created_at else 'Unknown' }}</div>
         </div>
         
         <!-- Controls Block -->
         <div class="brutalist-block controls-block">
-            <button class="control-btn" onclick="refreshStatus()">REFRESH</button>
-            <button class="control-btn" onclick="pauseProcessing()">PAUSE</button>
-            <button class="control-btn" onclick="cancelProcessing()">CANCEL</button>
+            <button class="control-btn" onclick="refreshStatus()" id="refresh-btn">
+                REFRESH
+            </button>
+            <button class="control-btn warning" onclick="pauseProcessing()" id="pause-btn">
+                PAUSE
+            </button>
+            <button class="control-btn danger" onclick="cancelProcessing()" id="cancel-btn">
+                CANCEL
+            </button>
+            <a href="/jobs" class="control-btn" style="text-decoration: none; text-align: center;">
+                BACK TO JOBS
+            </a>
+        </div>
+        
+        <!-- Pipeline Block -->
+        <div class="brutalist-block pipeline-block">
+            <h2 class="pipeline-title">Processing Pipeline</h2>
+            <div class="pipeline-stages">
+                <div class="stage-item completed" id="stage-parse">
+                    <span class="stage-icon">📄</span>
+                    <span class="stage-name">File Parse</span>
+                </div>
+                <div class="stage-item active" id="stage-extract">
+                    <span class="stage-icon">🔍</span>
+                    <span class="stage-name">Entity Extract</span>
+                </div>
+                <div class="stage-item" id="stage-query">
+                    <span class="stage-icon">🌐</span>
+                    <span class="stage-name">Authority Query</span>
+                </div>
+                <div class="stage-item" id="stage-save">
+                    <span class="stage-icon">💾</span>
+                    <span class="stage-name">Result Save</span>
+                </div>
+            </div>
         </div>
         
         <!-- Progress Block -->
         <div class="brutalist-block progress-block">
-            <h2 class="progress-title">Processing Pipeline</h2>
+            <div class="progress-header">
+                <h2 class="progress-title">Overall Progress</h2>
+                <div class="progress-percentage" id="progress-percent">0%</div>
+            </div>
             
-            <div class="progress-container">
-                <div class="progress-label">
-                    <span>OVERALL_PROGRESS</span>
-                    <span id="progress-percent">0%</span>
-                </div>
+            <div class="progress-bar-container">
                 <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill"></div>
+                    <div class="progress-fill" id="progress-fill" style="width: 0%;">
+                        <span class="progress-text" id="progress-text">INITIALIZING...</span>
+                    </div>
                 </div>
             </div>
             
-            <div class="progress-stages">
-                <div class="stage-item completed">FILE_PARSE</div>
-                <div class="stage-item active">ENTITY_EXTRACT</div>
-                <div class="stage-item">AUTHORITY_QUERY</div>
-                <div class="stage-item">RESULT_SAVE</div>
+            <div class="progress-stats">
+                <div class="progress-stat">
+                    <div class="stat-value" id="processed-count">0</div>
+                    <div class="stat-label">Processed</div>
+                </div>
+                <div class="progress-stat">
+                    <div class="stat-value" id="remaining-count">{{ job.total_entities or 0 }}</div>
+                    <div class="stat-label">Remaining</div>
+                </div>
+                <div class="progress-stat">
+                    <div class="stat-value" id="eta-time">--:--</div>
+                    <div class="stat-label">ETA</div>
+                </div>
             </div>
         </div>
         
         <!-- Metrics Block -->
         <div class="brutalist-block metrics-block">
-            <h2 class="progress-title">Processing Metrics</h2>
+            <h2 class="pipeline-title">Processing Metrics</h2>
             <div class="metrics-grid">
-                <div class="metric-item">
+                <div class="metric-card">
                     <div class="metric-value" id="total-entities">{{ job.total_entities or 0 }}</div>
                     <div class="metric-label">Total Entities</div>
+                    <div class="metric-change" id="total-change">Source: {{ job.filename }}</div>
                 </div>
-                <div class="metric-item">
-                    <div class="metric-value" id="processed-entities">0</div>
-                    <div class="metric-label">Processed</div>
-                </div>
-                <div class="metric-item">
+                <div class="metric-card">
                     <div class="metric-value" id="successful-matches">{{ job.successful_matches or 0 }}</div>
                     <div class="metric-label">Matches Found</div>
+                    <div class="metric-change" id="match-rate">0% success rate</div>
                 </div>
-                <div class="metric-item">
+                <div class="metric-card">
                     <div class="metric-value" id="cache-hits">0</div>
                     <div class="metric-label">Cache Hits</div>
+                    <div class="metric-change" id="cache-rate">0% cached</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="api-calls">0</div>
+                    <div class="metric-label">API Calls</div>
+                    <div class="metric-change" id="api-rate">0 calls/min</div>
                 </div>
             </div>
         </div>
         
         <!-- Logs Block -->
         <div class="brutalist-block logs-block">
-            <h2 class="progress-title">Processing Log</h2>
+            <div class="logs-header">
+                <h2 class="logs-title">Processing Log</h2>
+                <div class="logs-controls">
+                    <button class="log-btn" onclick="clearLogs()">CLEAR</button>
+                    <button class="log-btn" onclick="downloadLogs()">EXPORT</button>
+                    <button class="log-btn" onclick="toggleAutoScroll()" id="autoscroll-btn">AUTO</button>
+                </div>
+            </div>
             <div class="logs-container" id="logs-container">
                 <div class="log-entry">
-                    <span class="log-timestamp">{{ job.created_at[:19] }}</span>
+                    <span class="log-timestamp">{{ job.created_at.strftime('%H:%M:%S') if job.created_at else '00:00:00' }}</span>
                     <span class="log-level info">[INFO]</span>
-                    <span>JOB_INITIALIZED</span>
+                    <span class="log-message">JOB_INITIALIZED: {{ job.filename }}</span>
                 </div>
                 <div class="log-entry">
-                    <span class="log-timestamp">{{ job.created_at[:19] }}</span>
+                    <span class="log-timestamp">{{ job.created_at.strftime('%H:%M:%S') if job.created_at else '00:00:00' }}</span>
                     <span class="log-level info">[INFO]</span>
-                    <span>CSV_FILE_LOADED</span>
+                    <span class="log-message">CSV_FILE_LOADED: {{ job.total_entities or 0 }} entities detected</span>
                 </div>
                 <div class="log-entry">
-                    <span class="log-timestamp">{{ job.created_at[:19] }}</span>
+                    <span class="log-timestamp">{{ job.created_at.strftime('%H:%M:%S') if job.created_at else '00:00:00' }}</span>
                     <span class="log-level success">[SUCC]</span>
-                    <span>ENTITIES_EXTRACTED: {{ job.total_entities or 0 }}</span>
+                    <span class="log-message">WIKIDATA_CONNECTION_ESTABLISHED</span>
+                </div>
+                <div class="log-entry">
+                    <span class="log-timestamp">{{ job.created_at.strftime('%H:%M:%S') if job.created_at else '00:00:00' }}</span>
+                    <span class="log-level success">[SUCC]</span>
+                    <span class="log-message">VIAF_API_READY</span>
+                </div>
+                <div class="log-entry">
+                    <span class="log-timestamp">{{ job.created_at.strftime('%H:%M:%S') if job.created_at else '00:00:00' }}</span>
+                    <span class="log-level info">[INFO]</span>
+                    <span class="log-message">RECONCILIATION_ENGINE_STARTED</span>
                 </div>
             </div>
         </div>
         
-        <!-- Details Block -->
-        <div class="brutalist-block details-block">
-            <h2 class="progress-title">Job Configuration</h2>
-            <div class="details-grid">
-                <div class="detail-section">
-                    <div class="detail-title">Input Parameters</div>
-                    <div class="detail-item">
-                        <span class="detail-key">ENTITY_COLUMN:</span>
-                        <span class="detail-value">{{ job.entity_column }}</span>
+        <!-- Configuration Block -->
+        <div class="brutalist-block config-block">
+            <h2 class="pipeline-title">Job Configuration</h2>
+            <div class="config-grid">
+                <div class="config-section">
+                    <div class="config-title">Input Parameters</div>
+                    <div class="config-item">
+                        <span class="config-key">Entity Column:</span>
+                        <span class="config-value">{{ job.entity_column or 'name' }}</span>
                     </div>
-                    <div class="detail-item">
-                        <span class="detail-key">TYPE_COLUMN:</span>
-                        <span class="detail-value">{{ job.type_column or 'NONE' }}</span>
+                    <div class="config-item">
+                        <span class="config-key">Type Column:</span>
+                        <span class="config-value">{{ job.type_column or 'None' }}</span>
                     </div>
-                    <div class="detail-item">
-                        <span class="detail-key">CONTEXT_COLS:</span>
-                        <span class="detail-value">{{ job.context_columns | length if job.context_columns else 0 }}</span>
+                    <div class="config-item">
+                        <span class="config-key">Context Cols:</span>
+                        <span class="config-value">{{ job.context_columns | length if job.context_columns else 0 }}</span>
                     </div>
-                </div>
-                
-                <div class="detail-section">
-                    <div class="detail-title">Processing Config</div>
-                    <div class="detail-item">
-                        <span class="detail-key">CONFIDENCE:</span>
-                        <span class="detail-value">{{ job.confidence_threshold or 0.6 }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-key">DATA_SOURCES:</span>
-                        <span class="detail-value">{{ job.data_sources | length if job.data_sources else 0 }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-key">BATCH_SIZE:</span>
-                        <span class="detail-value">10</span>
+                    <div class="config-item">
+                        <span class="config-key">File Size:</span>
+                        <span class="config-value">{{ "%.1f"|format((job.file_size or 0) / 1024) }} KB</span>
                     </div>
                 </div>
                 
-                <div class="detail-section">
-                    <div class="detail-title">System Status</div>
-                    <div class="detail-item">
-                        <span class="detail-key">JOB_ID:</span>
-                        <span class="detail-value">{{ job.id[:8] }}...</span>
+                <div class="config-section">
+                    <div class="config-title">Processing Config</div>
+                    <div class="config-item">
+                        <span class="config-key">Confidence:</span>
+                        <span class="config-value">{{ job.confidence_threshold or 0.6 }}</span>
                     </div>
-                    <div class="detail-item">
-                        <span class="detail-key">WORKER_ID:</span>
-                        <span class="detail-value">WORKER_01</span>
+                    <div class="config-item">
+                        <span class="config-key">Max Results:</span>
+                        <span class="config-value">{{ job.max_results or 5 }}</span>
                     </div>
-                    <div class="detail-item">
-                        <span class="detail-key">MEMORY_USAGE:</span>
-                        <span class="detail-value">45MB</span>
+                    <div class="config-item">
+                        <span class="config-key">Timeout:</span>
+                        <span class="config-value">{{ job.timeout or 30 }}s</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-key">Batch Size:</span>
+                        <span class="config-value">{{ job.batch_size or 100 }}</span>
+                    </div>
+                </div>
+                
+                <div class="config-section">
+                    <div class="config-title">Authority Sources</div>
+                    <div class="config-item">
+                        <span class="config-key">Wikidata:</span>
+                        <span class="config-value">{{ 'Enabled' if job.use_wikidata else 'Disabled' }}</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-key">VIAF:</span>
+                        <span class="config-value">{{ 'Enabled' if job.use_viaf else 'Disabled' }}</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-key">Getty:</span>
+                        <span class="config-value">{{ 'Enabled' if job.use_getty else 'Disabled' }}</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-key">Job ID:</span>
+                        <span class="config-value">{{ job.id }}</span>
                     </div>
                 </div>
             </div>
@@ -519,110 +948,382 @@
 </div>
 
 <script>
-    let jobId = '{{ job.id }}';
-    let pollInterval;
-    
-    function updateJobStatus() {
-        fetch(`/api/job/${jobId}/status`)
-            .then(response => response.json())
-            .then(data => {
-                // Update progress
-                const progress = Math.max(0, Math.min(100, data.progress || 0));
-                document.getElementById('progress-fill').style.width = progress + '%';
-                document.getElementById('progress-percent').textContent = progress + '%';
-                
-                // Update status
-                document.getElementById('current-status').textContent = data.status.toUpperCase();
-                
-                // Update metrics
-                if (data.total_entities) {
-                    document.getElementById('total-entities').textContent = data.total_entities;
-                }
-                if (data.successful_matches) {
-                    document.getElementById('successful-matches').textContent = data.successful_matches;
-                }
-                
-                // Update stages
-                updateStages(progress);
-                
-                // Add log entry
-                addLogEntry(data.message || 'PROCESSING_CONTINUE');
-                
-                // Check if completed
-                if (data.status === 'completed') {
-                    clearInterval(pollInterval);
-                    setTimeout(() => {
-                        window.location.href = `/review/${jobId}`;
-                    }, 2000);
-                } else if (data.status === 'failed') {
-                    clearInterval(pollInterval);
-                    addLogEntry('PROCESSING_FAILED: ' + (data.error || 'UNKNOWN_ERROR'), 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Status update failed:', error);
-                addLogEntry('STATUS_UPDATE_FAILED', 'error');
-            });
-    }
-    
-    function updateStages(progress) {
-        const stages = document.querySelectorAll('.stage-item');
-        stages.forEach((stage, index) => {
-            stage.classList.remove('active', 'completed');
+    class ProcessingManager {
+        constructor() {
+            this.jobId = '{{ job.id }}';
+            this.pollInterval = null;
+            this.autoScroll = true;
+            this.startTime = new Date();
+            this.lastProgress = 0;
+            this.logCount = 0;
             
-            const stageProgress = (index + 1) * 25;
-            if (progress >= stageProgress) {
-                stage.classList.add('completed');
-            } else if (progress >= stageProgress - 25) {
-                stage.classList.add('active');
+            this.initializeProcessing();
+            this.startStatusPolling();
+            this.setupEventListeners();
+        }
+        
+        initializeProcessing() {
+            this.addLogEntry('PROCESSING_MANAGER_INITIALIZED', 'info');
+            this.updateLiveIndicator(true);
+            
+            // Set initial progress
+            this.updateProgress(0);
+            this.updateStages(0);
+        }
+        
+        startStatusPolling() {
+            this.updateJobStatus();
+            this.pollInterval = setInterval(() => {
+                this.updateJobStatus();
+            }, 2000); // Poll every 2 seconds
+        }
+        
+        setupEventListeners() {
+            // Auto-scroll toggle
+            const logsContainer = document.getElementById('logs-container');
+            logsContainer.addEventListener('scroll', () => {
+                const isAtBottom = logsContainer.scrollTop + logsContainer.clientHeight >= logsContainer.scrollHeight - 10;
+                if (!isAtBottom && this.autoScroll) {
+                    this.autoScroll = false;
+                    this.updateAutoScrollButton();
+                }
+            });
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    switch(e.key) {
+                        case 'r':
+                            e.preventDefault();
+                            this.refreshStatus();
+                            break;
+                        case 'p':
+                            e.preventDefault();
+                            this.pauseProcessing();
+                            break;
+                        case 'l':
+                            e.preventDefault();
+                            this.clearLogs();
+                            break;
+                    }
+                }
+            });
+        }
+        
+        updateJobStatus() {
+            fetch(`/api/jobs/${this.jobId}/status`)
+                .then(response => response.json())
+                .then(data => {
+                    this.handleStatusUpdate(data);
+                })
+                .catch(error => {
+                    console.error('Status update failed:', error);
+                    this.addLogEntry('STATUS_UPDATE_FAILED: ' + error.message, 'error');
+                    this.updateLiveIndicator(false);
+                });
+        }
+        
+        handleStatusUpdate(data) {
+            const statusBlock = document.getElementById('status-block');
+            const currentStatus = document.getElementById('current-status');
+            
+            // Update status display
+            currentStatus.textContent = data.status.toUpperCase();
+            
+            // Update status block styling
+            statusBlock.className = `brutalist-block status-block ${data.status}`;
+            
+            // Update progress
+            if (data.progress !== undefined) {
+                this.updateProgress(data.progress);
+                this.updateStages(data.progress);
+                
+                // Add progress log entry occasionally
+                if (data.progress > this.lastProgress + 10) {
+                    this.addLogEntry(`PROGRESS_UPDATE: ${data.progress}% complete`, 'info');
+                    this.lastProgress = data.progress;
+                }
             }
-        });
-    }
-    
-    function addLogEntry(message, level = 'info') {
-        const container = document.getElementById('logs-container');
-        const now = new Date().toISOString().slice(11, 19);
+            
+            // Update metrics
+            if (data.metrics) {
+                this.updateMetrics(data.metrics);
+            }
+            
+            // Add any new log messages
+            if (data.message) {
+                this.addLogEntry(data.message, data.level || 'info');
+            }
+            
+            // Handle completion or failure
+            if (data.status === 'completed') {
+                this.handleCompletion(data);
+            } else if (data.status === 'failed') {
+                this.handleFailure(data);
+            }
+            
+            this.updateLiveIndicator(true);
+        }
         
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        entry.innerHTML = `
-            <span class="log-timestamp">${now}</span>
-            <span class="log-level ${level}">[${level.toUpperCase().slice(0, 4)}]</span>
-            <span>${message}</span>
-        `;
+        updateProgress(progress) {
+            const progressFill = document.getElementById('progress-fill');
+            const progressPercent = document.getElementById('progress-percent');
+            const progressText = document.getElementById('progress-text');
+            const processedCount = document.getElementById('processed-count');
+            const remainingCount = document.getElementById('remaining-count');
+            const etaTime = document.getElementById('eta-time');
+            
+            // Update progress bar
+            progressFill.style.width = `${progress}%`;
+            progressPercent.textContent = `${progress}%`;
+            
+            // Update progress text based on stage
+            let statusText = 'PROCESSING...';
+            if (progress < 25) statusText = 'PARSING FILE...';
+            else if (progress < 50) statusText = 'EXTRACTING ENTITIES...';
+            else if (progress < 75) statusText = 'QUERYING AUTHORITIES...';
+            else if (progress < 100) statusText = 'SAVING RESULTS...';
+            else statusText = 'COMPLETED!';
+            
+            progressText.textContent = statusText;
+            
+            // Calculate ETA
+            const elapsed = (new Date() - this.startTime) / 1000; // seconds
+            const rate = progress / elapsed;
+            const remainingTime = rate > 0 ? (100 - progress) / rate : 0;
+            
+            if (remainingTime > 0 && progress < 100) {
+                const minutes = Math.floor(remainingTime / 60);
+                const seconds = Math.floor(remainingTime % 60);
+                etaTime.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                etaTime.textContent = '--:--';
+            }
+        }
         
-        container.appendChild(entry);
-        container.scrollTop = container.scrollHeight;
+        updateStages(progress) {
+            const stages = ['stage-parse', 'stage-extract', 'stage-query', 'stage-save'];
+            
+            stages.forEach((stageId, index) => {
+                const stage = document.getElementById(stageId);
+                const stageProgress = (index + 1) * 25;
+                
+                stage.classList.remove('active', 'completed');
+                
+                if (progress >= stageProgress) {
+                    stage.classList.add('completed');
+                } else if (progress >= stageProgress - 25) {
+                    stage.classList.add('active');
+                }
+            });
+        }
         
-        // Keep only last 20 entries
-        while (container.children.length > 20) {
-            container.removeChild(container.firstChild);
+        updateMetrics(metrics) {
+            // Update metric values
+            if (metrics.total_entities) {
+                document.getElementById('total-entities').textContent = metrics.total_entities;
+            }
+            
+            if (metrics.successful_matches !== undefined) {
+                document.getElementById('successful-matches').textContent = metrics.successful_matches;
+                
+                // Update match rate
+                const total = metrics.processed_entities || 1;
+                const rate = Math.round((metrics.successful_matches / total) * 100);
+                document.getElementById('match-rate').textContent = `${rate}% success rate`;
+            }
+            
+            if (metrics.cache_hits !== undefined) {
+                document.getElementById('cache-hits').textContent = metrics.cache_hits;
+                
+                // Update cache rate
+                const total = metrics.api_calls || 1;
+                const cacheRate = Math.round((metrics.cache_hits / total) * 100);
+                document.getElementById('cache-rate').textContent = `${cacheRate}% cached`;
+            }
+            
+            if (metrics.api_calls !== undefined) {
+                document.getElementById('api-calls').textContent = metrics.api_calls;
+                
+                // Calculate API call rate
+                const elapsed = (new Date() - this.startTime) / 60000; // minutes
+                const rate = elapsed > 0 ? Math.round(metrics.api_calls / elapsed) : 0;
+                document.getElementById('api-rate').textContent = `${rate} calls/min`;
+            }
+            
+            // Update processed/remaining counts
+            if (metrics.processed_entities !== undefined) {
+                document.getElementById('processed-count').textContent = metrics.processed_entities;
+                const total = metrics.total_entities || 0;
+                document.getElementById('remaining-count').textContent = total - metrics.processed_entities;
+            }
+        }
+        
+        addLogEntry(message, level = 'info') {
+            const container = document.getElementById('logs-container');
+            const now = new Date().toISOString().slice(11, 19);
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-timestamp">${now}</span>
+                <span class="log-level ${level}">[${level.toUpperCase().slice(0, 4)}]</span>
+                <span class="log-message">${message}</span>
+            `;
+            
+            container.appendChild(entry);
+            
+            // Auto-scroll if enabled
+            if (this.autoScroll) {
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            // Keep only last 50 entries for performance
+            this.logCount++;
+            if (this.logCount > 50) {
+                container.removeChild(container.firstChild);
+                this.logCount--;
+            }
+        }
+        
+        updateLiveIndicator(isLive) {
+            const indicator = document.getElementById('live-indicator');
+            if (isLive) {
+                indicator.textContent = '● LIVE';
+                indicator.style.backgroundColor = 'var(--success-green)';
+            } else {
+                indicator.textContent = '● OFFLINE';
+                indicator.style.backgroundColor = 'var(--error-red)';
+            }
+        }
+        
+        handleCompletion(data) {
+            clearInterval(this.pollInterval);
+            
+            this.addLogEntry('PROCESSING_COMPLETED_SUCCESSFULLY', 'success');
+            this.addLogEntry(`TOTAL_MATCHES: ${data.metrics?.successful_matches || 0}`, 'success');
+            
+            // Update progress to 100%
+            this.updateProgress(100);
+            this.updateStages(100);
+            
+            // Show completion message
+            setTimeout(() => {
+                if (confirm('Processing completed! Go to review page?')) {
+                    window.location.href = `/review/${this.jobId}`;
+                }
+            }, 2000);
+        }
+        
+        handleFailure(data) {
+            clearInterval(this.pollInterval);
+            
+            this.addLogEntry('PROCESSING_FAILED: ' + (data.error || 'UNKNOWN_ERROR'), 'error');
+            this.updateLiveIndicator(false);
+            
+            // Show error in status
+            document.getElementById('progress-text').textContent = 'FAILED';
+        }
+        
+        refreshStatus() {
+            this.addLogEntry('STATUS_REFRESH_REQUESTED', 'info');
+            this.updateJobStatus();
+        }
+        
+        pauseProcessing() {
+            this.addLogEntry('PAUSE_REQUEST_SENT', 'warning');
+            
+            fetch(`/api/jobs/${this.jobId}/pause`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        this.addLogEntry('PROCESSING_PAUSED', 'warning');
+                    } else {
+                        this.addLogEntry('PAUSE_FAILED: ' + (data.error || 'Unknown error'), 'error');
+                    }
+                })
+                .catch(error => {
+                    this.addLogEntry('PAUSE_FAILED: ' + error.message, 'error');
+                });
+        }
+        
+        cancelProcessing() {
+            if (confirm('CONFIRM: Cancel processing job? This action cannot be undone.')) {
+                this.addLogEntry('CANCELLATION_REQUESTED', 'warning');
+                
+                fetch(`/api/jobs/${this.jobId}/cancel`, { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            this.addLogEntry('PROCESSING_CANCELLED', 'error');
+                            clearInterval(this.pollInterval);
+                            setTimeout(() => {
+                                window.location.href = '/jobs';
+                            }, 2000);
+                        } else {
+                            this.addLogEntry('CANCELLATION_FAILED: ' + (data.error || 'Unknown error'), 'error');
+                        }
+                    })
+                    .catch(error => {
+                        this.addLogEntry('CANCELLATION_FAILED: ' + error.message, 'error');
+                    });
+            }
+        }
+        
+        clearLogs() {
+            const container = document.getElementById('logs-container');
+            container.innerHTML = '';
+            this.logCount = 0;
+            this.addLogEntry('LOGS_CLEARED', 'info');
+        }
+        
+        downloadLogs() {
+            const container = document.getElementById('logs-container');
+            const logs = Array.from(container.children).map(entry => entry.textContent).join('\n');
+            
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `processing_log_${this.jobId}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            this.addLogEntry('LOGS_EXPORTED', 'info');
+        }
+        
+        toggleAutoScroll() {
+            this.autoScroll = !this.autoScroll;
+            this.updateAutoScrollButton();
+            
+            if (this.autoScroll) {
+                const container = document.getElementById('logs-container');
+                container.scrollTop = container.scrollHeight;
+                this.addLogEntry('AUTOSCROLL_ENABLED', 'info');
+            } else {
+                this.addLogEntry('AUTOSCROLL_DISABLED', 'info');
+            }
+        }
+        
+        updateAutoScrollButton() {
+            const btn = document.getElementById('autoscroll-btn');
+            btn.textContent = this.autoScroll ? 'AUTO' : 'MANUAL';
+            btn.style.backgroundColor = this.autoScroll ? 'var(--success-green)' : 'var(--system-gray)';
         }
     }
     
-    function refreshStatus() {
-        updateJobStatus();
-        addLogEntry('STATUS_REFRESH_REQUESTED', 'info');
-    }
+    // Initialize processing manager
+    let processingManager;
+    document.addEventListener('DOMContentLoaded', function() {
+        processingManager = new ProcessingManager();
+    });
     
-    function pauseProcessing() {
-        addLogEntry('PAUSE_REQUEST_SENT', 'warning');
-    }
-    
-    function cancelProcessing() {
-        if (confirm('CONFIRM: CANCEL_PROCESSING_JOB?')) {
-            addLogEntry('CANCELLATION_REQUESTED', 'warning');
-            // Add actual cancellation logic here
-        }
-    }
-    
-    // Start polling
-    updateJobStatus();
-    pollInterval = setInterval(updateJobStatus, 2000);
-    
-    // Add initial log entries
-    setTimeout(() => addLogEntry('WIKIDATA_CONNECTION_ESTABLISHED', 'success'), 1000);
-    setTimeout(() => addLogEntry('VIAF_API_READY', 'success'), 1500);
-    setTimeout(() => addLogEntry('RECONCILIATION_ENGINE_STARTED', 'info'), 2000);
+    // Global functions for template compatibility
+    function refreshStatus() { processingManager.refreshStatus(); }
+    function pauseProcessing() { processingManager.pauseProcessing(); }
+    function cancelProcessing() { processingManager.cancelProcessing(); }
+    function clearLogs() { processingManager.clearLogs(); }
+    function downloadLogs() { processingManager.downloadLogs(); }
+    function toggleAutoScroll() { processingManager.toggleAutoScroll(); }
 </script>
 {% endblock %}

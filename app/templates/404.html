@@ -1,11 +1,724 @@
 {% extends "base.html" %}
 
-{% block title %}Page Not Found{% endblock %}
+{% block title %}404 - Page Not Found - Metadata Reconciliation System{% endblock %}
 
 {% block content %}
-<div class="card" style="text-align: center;">
-    <h1>404 - Page Not Found</h1>
-    <p>The page you're looking for doesn't exist.</p>
-    <a href="{{ url_for('upload') }}" class="btn btn-primary">Go to Upload Page</a>
+<style>
+    /* Import brutalist fonts */
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    :root {
+        /* Brutalist Color System */
+        --primary-white: #FAFAFA;
+        --structure-black: #1A1A1A;
+        --accent-blue: #0066FF;
+        --system-gray: #808080;
+        --success-green: #00CC44;
+        --warning-orange: #FF8800;
+        --error-red: #FF3333;
+        
+        /* Brutalist Grid */
+        --grid-gap: 16px;
+        --border-width: 2px;
+        --shadow-offset: 4px;
+        
+        /* Typography */
+        --font-mono: 'JetBrains Mono', monospace;
+        --font-sans: 'Inter', sans-serif;
+    }
+    
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-family: var(--font-sans);
+        background: var(--primary-white);
+        color: var(--structure-black);
+        line-height: 1.4;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Reset base styles for brutalist override */
+    .card { display: none; }
+    
+    .brutalist-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: var(--grid-gap);
+        width: 100%;
+    }
+    
+    /* Error Bento Grid Layout */
+    .error-bento-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        grid-template-rows: auto;
+        gap: var(--grid-gap);
+        grid-template-areas:
+            "error error error error error error error error"
+            "message message message message message message message message"
+            "search search search search search search search search"
+            "actions actions actions actions actions actions actions actions"
+            "help help help help help help help help";
+    }
+    
+    /* Brutalist Block Foundation */
+    .brutalist-block {
+        background: var(--primary-white);
+        border: var(--border-width) solid var(--structure-black);
+        position: relative;
+        transition: all 0.2s ease;
+        padding: 24px;
+    }
+    
+    .brutalist-block::before {
+        content: '';
+        position: absolute;
+        top: var(--shadow-offset);
+        left: var(--shadow-offset);
+        right: calc(-1 * var(--shadow-offset));
+        bottom: calc(-1 * var(--shadow-offset));
+        background: var(--structure-black);
+        z-index: -1;
+    }
+    
+    .brutalist-block:hover::before {
+        background: var(--accent-blue);
+    }
+    
+    /* Error Code Block */
+    .error-block {
+        grid-area: error;
+        text-align: center;
+        background: var(--error-red);
+        color: var(--primary-white);
+        border-color: var(--structure-black);
+    }
+    
+    .error-code {
+        font-family: var(--font-mono);
+        font-size: clamp(48px, 12vw, 120px);
+        font-weight: 700;
+        margin-bottom: 16px;
+        text-transform: uppercase;
+        letter-spacing: 4px;
+        line-height: 0.8;
+    }
+    
+    .error-title {
+        font-family: var(--font-mono);
+        font-size: clamp(16px, 4vw, 24px);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 8px;
+    }
+    
+    .error-subtitle {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    /* Message Block */
+    .message-block {
+        grid-area: message;
+        text-align: center;
+    }
+    
+    .message-title {
+        font-family: var(--font-mono);
+        font-size: 18px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        color: var(--structure-black);
+    }
+    
+    .message-text {
+        font-size: 14px;
+        color: var(--system-gray);
+        line-height: 1.6;
+        margin-bottom: 16px;
+    }
+    
+    .request-info {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--system-gray);
+        background: rgba(128, 128, 128, 0.1);
+        padding: 12px;
+        border: 1px solid var(--system-gray);
+        word-break: break-all;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Search Block */
+    .search-block {
+        grid-area: search;
+    }
+    
+    .search-title {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        color: var(--structure-black);
+    }
+    
+    .search-form {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .search-input {
+        flex: 1;
+        padding: 12px;
+        border: var(--border-width) solid var(--structure-black);
+        background: var(--primary-white);
+        font-family: var(--font-sans);
+        font-size: 14px;
+        font-weight: 400;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--accent-blue);
+    }
+    
+    .search-btn {
+        background: var(--accent-blue);
+        color: var(--primary-white);
+        border: none;
+        padding: 12px 16px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.1s ease;
+    }
+    
+    .search-btn::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        right: -3px;
+        bottom: -3px;
+        background: var(--structure-black);
+        z-index: -1;
+        transition: all 0.1s ease;
+    }
+    
+    .search-btn:hover::before {
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+    }
+    
+    .search-btn:active {
+        transform: translate(2px, 2px);
+    }
+    
+    .search-btn:active::before {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+    
+    .search-suggestions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .suggestion-btn {
+        background: var(--system-gray);
+        color: var(--primary-white);
+        border: none;
+        padding: 6px 12px;
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.1s ease;
+    }
+    
+    .suggestion-btn::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+        background: var(--structure-black);
+        z-index: -1;
+        transition: all 0.1s ease;
+    }
+    
+    .suggestion-btn:hover {
+        background: var(--accent-blue);
+    }
+    
+    .suggestion-btn:hover::before {
+        top: 1px;
+        left: 1px;
+        right: -1px;
+        bottom: -1px;
+    }
+    
+    /* Actions Block */
+    .actions-block {
+        grid-area: actions;
+    }
+    
+    .actions-title {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        color: var(--structure-black);
+    }
+    
+    .actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+    }
+    
+    /* Brutalist Buttons */
+    .brutalist-btn {
+        background: var(--structure-black);
+        color: var(--primary-white);
+        border: none;
+        padding: 12px 16px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        position: relative;
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+        transition: all 0.1s ease;
+    }
+    
+    .brutalist-btn::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        right: -3px;
+        bottom: -3px;
+        background: var(--system-gray);
+        z-index: -1;
+        transition: all 0.1s ease;
+    }
+    
+    .brutalist-btn:hover::before {
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+        background: var(--accent-blue);
+    }
+    
+    .brutalist-btn:active {
+        transform: translate(2px, 2px);
+    }
+    
+    .brutalist-btn:active::before {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+    
+    .brutalist-btn.success { background: var(--success-green); }
+    .brutalist-btn.warning { background: var(--warning-orange); }
+    .brutalist-btn.secondary {
+        background: var(--primary-white);
+        color: var(--structure-black);
+        border: var(--border-width) solid var(--structure-black);
+    }
+    
+    /* Help Block */
+    .help-block {
+        grid-area: help;
+    }
+    
+    .help-title {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        color: var(--structure-black);
+    }
+    
+    .help-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+    }
+    
+    .help-item {
+        padding: 16px;
+        border: 1px solid var(--system-gray);
+        background: rgba(128, 128, 128, 0.05);
+    }
+    
+    .help-item-title {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+        color: var(--structure-black);
+    }
+    
+    .help-item-text {
+        font-size: 11px;
+        color: var(--system-gray);
+        line-height: 1.4;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        body {
+            align-items: flex-start;
+            padding-top: 20px;
+        }
+        
+        .error-bento-grid {
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-areas:
+                "error error error error"
+                "message message message message"
+                "search search search search"
+                "actions actions actions actions"
+                "help help help help";
+        }
+        
+        .actions-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .help-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .search-form {
+            flex-direction: column;
+        }
+        
+        .search-suggestions {
+            justify-content: center;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .error-code {
+            font-size: 60px;
+        }
+        
+        .error-title {
+            font-size: 16px;
+        }
+    }
+    
+    /* High contrast mode */
+    @media (prefers-contrast: high) {
+        :root {
+            --primary-white: #FFFFFF;
+            --structure-black: #000000;
+            --system-gray: #666666;
+            --accent-blue: #0033CC;
+        }
+    }
+    
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+</style>
+
+<div class="brutalist-container">
+    <div class="error-bento-grid">
+        <!-- Error Code Block -->
+        <div class="brutalist-block error-block">
+            <div class="error-code">404</div>
+            <div class="error-title">Page Not Found</div>
+            <div class="error-subtitle">Resource_Not_Located_In_System</div>
+        </div>
+        
+        <!-- Message Block -->
+        <div class="brutalist-block message-block">
+            <div class="message-title">Navigation Error Detected</div>
+            <div class="message-text">
+                The requested resource could not be located in the metadata reconciliation system. 
+                This could be due to a mistyped URL, a moved resource, or an expired link.
+            </div>
+            <div class="request-info">
+                Requested_Path: {{ request.path }}<br>
+                Error_Time: {{ moment().format('YYYY-MM-DD HH:mm:ss') }}<br>
+                Status_Code: HTTP_404_Not_Found
+            </div>
+        </div>
+        
+        <!-- Search Block -->
+        <div class="brutalist-block search-block">
+            <div class="search-title">Search System Resources</div>
+            <form class="search-form" onsubmit="performSearch(event)">
+                <input type="text" class="search-input" id="search-input" 
+                       placeholder="Search for jobs, files, or features..." 
+                       autocomplete="off">
+                <button type="submit" class="search-btn">SEARCH</button>
+            </form>
+            <div class="search-suggestions">
+                <button class="suggestion-btn" onclick="searchFor('jobs')">JOBS</button>
+                <button class="suggestion-btn" onclick="searchFor('upload')">UPLOAD</button>
+                <button class="suggestion-btn" onclick="searchFor('review')">REVIEW</button>
+                <button class="suggestion-btn" onclick="searchFor('export')">EXPORT</button>
+                <button class="suggestion-btn" onclick="searchFor('processing')">PROCESSING</button>
+            </div>
+        </div>
+        
+        <!-- Actions Block -->
+        <div class="brutalist-block actions-block">
+            <div class="actions-title">Quick Navigation</div>
+            <div class="actions-grid">
+                <a href="{{ url_for('upload') }}" class="brutalist-btn success">
+                    📤 START NEW JOB
+                </a>
+                <a href="{{ url_for('jobs_list') }}" class="brutalist-btn">
+                    📋 VIEW ALL JOBS
+                </a>
+                <a href="/" class="brutalist-btn secondary">
+                    🏠 SYSTEM HOME
+                </a>
+                <button class="brutalist-btn warning" onclick="reportIssue()">
+                    🐛 REPORT ISSUE
+                </button>
+                <button class="brutalist-btn secondary" onclick="goBack()">
+                    ← GO BACK
+                </button>
+                <button class="brutalist-btn secondary" onclick="refreshPage()">
+                    🔄 REFRESH PAGE
+                </button>
+            </div>
+        </div>
+        
+        <!-- Help Block -->
+        <div class="brutalist-block help-block">
+            <div class="help-title">System Information</div>
+            <div class="help-grid">
+                <div class="help-item">
+                    <div class="help-item-title">Common Causes</div>
+                    <div class="help-item-text">
+                        • Mistyped URL or incorrect link<br>
+                        • Job ID no longer exists<br>
+                        • Resource moved or deleted<br>
+                        • Session expired or invalid
+                    </div>
+                </div>
+                
+                <div class="help-item">
+                    <div class="help-item-title">System Status</div>
+                    <div class="help-item-text">
+                        • Metadata reconciliation: Online<br>
+                        • Authority services: Operational<br>
+                        • Upload system: Functional<br>
+                        • Export module: Available
+                    </div>
+                </div>
+                
+                <div class="help-item">
+                    <div class="help-item-title">Need Assistance?</div>
+                    <div class="help-item-text">
+                        • Check URL for typos<br>
+                        • Use navigation above<br>
+                        • Contact system administrator<br>
+                        • Report persistent issues
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+    function performSearch(event) {
+        event.preventDefault();
+        const query = document.getElementById('search-input').value.trim();
+        
+        if (!query) {
+            showMessage('Please enter a search term', 'warning');
+            return;
+        }
+        
+        // Simulate search functionality
+        showMessage(`Searching for: "${query}"...`, 'info');
+        
+        // In a real implementation, this would perform actual search
+        setTimeout(() => {
+            const routes = {
+                'job': '/jobs',
+                'jobs': '/jobs',
+                'upload': '/upload',
+                'review': '/review',
+                'export': '/export',
+                'processing': '/processing',
+                'home': '/'
+            };
+            
+            const lowerQuery = query.toLowerCase();
+            const foundRoute = Object.keys(routes).find(key => 
+                lowerQuery.includes(key) || key.includes(lowerQuery)
+            );
+            
+            if (foundRoute) {
+                showMessage(`Redirecting to ${foundRoute}...`, 'success');
+                setTimeout(() => {
+                    window.location.href = routes[foundRoute];
+                }, 1000);
+            } else {
+                showMessage('No matching resources found. Try the navigation links above.', 'error');
+            }
+        }, 1000);
+    }
+    
+    function searchFor(term) {
+        document.getElementById('search-input').value = term;
+        performSearch(new Event('submit'));
+    }
+    
+    function goBack() {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.location.href = '/';
+        }
+    }
+    
+    function refreshPage() {
+        window.location.reload();
+    }
+    
+    function reportIssue() {
+        const issueData = {
+            url: window.location.href,
+            userAgent: navigator.userAgent,
+            timestamp: new Date().toISOString(),
+            referrer: document.referrer || 'Direct access'
+        };
+        
+        showMessage('Issue report prepared. In a real system, this would be sent to administrators.', 'info');
+        console.log('404 Error Report:', issueData);
+        
+        // In a real implementation, this would send the report to an error tracking service
+    }
+    
+    function showMessage(message, type = 'info') {
+        // Create a temporary message display
+        const messageDiv = document.createElement('div');
+        messageDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            border: 2px solid #1A1A1A;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        `;
+        
+        // Set color based on type
+        switch(type) {
+            case 'success':
+                messageDiv.style.background = '#00CC44';
+                messageDiv.style.color = '#FAFAFA';
+                break;
+            case 'error':
+                messageDiv.style.background = '#FF3333';
+                messageDiv.style.color = '#FAFAFA';
+                break;
+            case 'warning':
+                messageDiv.style.background = '#FF8800';
+                messageDiv.style.color = '#FAFAFA';
+                break;
+            default:
+                messageDiv.style.background = '#0066FF';
+                messageDiv.style.color = '#FAFAFA';
+        }
+        
+        messageDiv.textContent = message;
+        document.body.appendChild(messageDiv);
+        
+        // Remove message after 3 seconds
+        setTimeout(() => {
+            messageDiv.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(messageDiv);
+            }, 300);
+        }, 3000);
+    }
+    
+    // Focus on search input when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('search-input').focus();
+        
+        // Log 404 error for analytics
+        console.log('404 Error:', {
+            path: window.location.pathname,
+            referrer: document.referrer,
+            timestamp: new Date().toISOString()
+        });
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            goBack();
+        } else if (e.key === 'Enter' && e.ctrlKey) {
+            window.location.href = '/';
+        } else if (e.key === 'F5' || (e.key === 'r' && e.ctrlKey)) {
+            // Let default refresh behavior work
+        }
+    });
+</script>
 {% endblock %}

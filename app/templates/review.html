@@ -2,60 +2,400 @@
 
 {% block title %}Match Review Module - {{ job.filename }}{% endblock %}
 
-{% block styles %}
+{% block content %}
 <style>
-    /* Review-specific styles */
-    .review-header {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: var(--grid-gap);
-        align-items: start;
-        margin-bottom: var(--grid-gap);
+    /* Import brutalist fonts */
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    :root {
+        /* Brutalist Color System */
+        --primary-white: #FAFAFA;
+        --structure-black: #1A1A1A;
+        --accent-blue: #0066FF;
+        --system-gray: #808080;
+        --success-green: #00CC44;
+        --warning-orange: #FF8800;
+        --error-red: #FF3333;
+        
+        /* Brutalist Grid */
+        --grid-gap: 16px;
+        --border-width: 2px;
+        --shadow-offset: 4px;
+        
+        /* Typography */
+        --font-mono: 'JetBrains Mono', monospace;
+        --font-sans: 'Inter', sans-serif;
     }
     
-    .review-controls {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
     }
     
-    .filter-panel {
-        background: rgba(128, 128, 128, 0.1);
-        padding: 16px;
-        border: 1px solid var(--system-gray);
-        margin-bottom: var(--grid-gap);
+    body {
+        font-family: var(--font-sans);
+        background: var(--primary-white);
+        color: var(--structure-black);
+        line-height: 1.4;
+        min-height: 100vh;
     }
     
-    .filter-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 16px;
-        margin-bottom: 16px;
-    }
+    /* Reset base styles for brutalist override */
+    .card { display: none; }
     
-    .entity-container {
-        border: var(--border-width) solid var(--structure-black);
-        margin-bottom: var(--grid-gap);
-        position: relative;
+    .brutalist-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: var(--grid-gap);
+        min-height: 100vh;
         background: var(--primary-white);
     }
     
-    .entity-container::before {
+    /* Review Bento Grid Layout */
+    .review-bento-grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        grid-template-rows: auto;
+        gap: var(--grid-gap);
+        grid-template-areas:
+            "header header header header header header stats stats stats stats stats stats"
+            "controls controls controls controls filters filters filters filters filters filters filters filters"
+            "entities entities entities entities entities entities entities entities entities entities entities entities"
+            "pagination pagination pagination pagination pagination pagination pagination pagination pagination pagination pagination pagination";
+    }
+    
+    /* Brutalist Block Foundation */
+    .brutalist-block {
+        background: var(--primary-white);
+        border: var(--border-width) solid var(--structure-black);
+        position: relative;
+        transition: all 0.2s ease;
+        padding: 24px;
+    }
+    
+    .brutalist-block::before {
         content: '';
         position: absolute;
-        top: 4px;
-        left: 4px;
-        right: -4px;
-        bottom: -4px;
-        background: var(--system-gray);
+        top: var(--shadow-offset);
+        left: var(--shadow-offset);
+        right: calc(-1 * var(--shadow-offset));
+        bottom: calc(-1 * var(--shadow-offset));
+        background: var(--structure-black);
         z-index: -1;
     }
     
-    .entity-header {
-        padding: 16px;
+    .brutalist-block:hover::before {
+        background: var(--accent-blue);
+    }
+    
+    /* Header Block */
+    .header-block {
+        grid-area: header;
+    }
+    
+    .system-title {
+        font-family: var(--font-mono);
+        font-size: clamp(24px, 5vw, 32px);
+        font-weight: 700;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: var(--structure-black);
+    }
+    
+    .job-subtitle {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--system-gray);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0;
+    }
+    
+    /* Stats Block */
+    .stats-block {
+        grid-area: stats;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-top: 16px;
+    }
+    
+    .stat-card {
         background: var(--structure-black);
         color: var(--primary-white);
-        border-bottom: var(--border-width) solid var(--structure-black);
+        padding: 16px;
+        text-align: center;
+        position: relative;
+        border: var(--border-width) solid var(--structure-black);
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        right: -3px;
+        bottom: -3px;
+        background: var(--accent-blue);
+        z-index: -1;
+    }
+    
+    .stat-card.success::before { background: var(--success-green); }
+    .stat-card.warning::before { background: var(--warning-orange); }
+    .stat-card.error::before { background: var(--error-red); }
+    
+    .stat-value {
+        font-family: var(--font-mono);
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 4px;
+        color: var(--primary-white);
+    }
+    
+    .stat-label {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        opacity: 0.9;
+    }
+    
+    /* Controls Block */
+    .controls-block {
+        grid-area: controls;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+    }
+    
+    .bulk-toggle {
+        background: var(--system-gray);
+        color: var(--primary-white);
+        border: none;
+        padding: 12px 16px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        position: relative;
+    }
+    
+    .bulk-toggle::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        right: -3px;
+        bottom: -3px;
+        background: var(--structure-black);
+        z-index: -1;
+    }
+    
+    .bulk-toggle.active {
+        background: var(--accent-blue);
+    }
+    
+    /* Brutalist Buttons */
+    .brutalist-btn {
+        background: var(--structure-black);
+        color: var(--primary-white);
+        border: none;
+        padding: 12px 16px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        position: relative;
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+        transition: all 0.1s ease;
+    }
+    
+    .brutalist-btn::before {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        right: -3px;
+        bottom: -3px;
+        background: var(--system-gray);
+        z-index: -1;
+        transition: all 0.1s ease;
+    }
+    
+    .brutalist-btn:hover::before {
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+        background: var(--accent-blue);
+    }
+    
+    .brutalist-btn:active {
+        transform: translate(2px, 2px);
+    }
+    
+    .brutalist-btn:active::before {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+    
+    .brutalist-btn.success { background: var(--success-green); }
+    .brutalist-btn.warning { background: var(--warning-orange); }
+    .brutalist-btn.error { background: var(--error-red); }
+    .brutalist-btn.secondary {
+        background: var(--primary-white);
+        color: var(--structure-black);
+        border: var(--border-width) solid var(--structure-black);
+    }
+    
+    /* Filters Block */
+    .filters-block {
+        grid-area: filters;
+    }
+    
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+    }
+    
+    .field-group {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .field-label {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--structure-black);
+    }
+    
+    .field-input, .field-select {
+        padding: 12px;
+        border: var(--border-width) solid var(--structure-black);
+        background: var(--primary-white);
+        font-family: var(--font-sans);
+        font-size: 14px;
+        font-weight: 400;
+    }
+    
+    .field-input:focus, .field-select:focus {
+        outline: none;
+        border-color: var(--accent-blue);
+    }
+    
+    /* Bulk Operations Panel */
+    .bulk-operations {
+        background: rgba(26, 26, 26, 0.05);
+        padding: 20px;
+        border: 2px dashed var(--system-gray);
+        margin-bottom: var(--grid-gap);
+        display: none;
+        position: relative;
+    }
+    
+    .bulk-operations.show {
+        display: block;
+        animation: slideDown 0.3s ease;
+    }
+    
+    .bulk-header {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 16px;
+        color: var(--structure-black);
+    }
+    
+    .bulk-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    
+    /* Entities Container */
+    .entities-container {
+        grid-area: entities;
+    }
+    
+    .entities-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--grid-gap);
+    }
+    
+    /* Entity Cards */
+    .entity-card {
+        border: var(--border-width) solid var(--structure-black);
+        background: var(--primary-white);
+        position: relative;
+        transition: all 0.2s ease;
+        overflow: hidden;
+    }
+    
+    .entity-card::before {
+        content: '';
+        position: absolute;
+        top: var(--shadow-offset);
+        left: var(--shadow-offset);
+        right: calc(-1 * var(--shadow-offset));
+        bottom: calc(-1 * var(--shadow-offset));
+        background: var(--system-gray);
+        z-index: -1;
+        transition: all 0.2s ease;
+    }
+    
+    .entity-card:hover::before {
+        background: var(--accent-blue);
+        transform: translate(-2px, -2px);
+    }
+    
+    .entity-card.selected {
+        background: rgba(0, 102, 255, 0.1);
+    }
+    
+    .entity-card.selected::before {
+        background: var(--accent-blue);
+    }
+    
+    /* Entity Header */
+    .entity-header {
+        background: var(--structure-black);
+        color: var(--primary-white);
+        padding: 16px;
+        position: relative;
+    }
+    
+    .entity-header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+    }
+    
+    .entity-select {
+        margin-right: 12px;
+        transform: scale(1.2);
     }
     
     .entity-name {
@@ -65,6 +405,7 @@
         margin-bottom: 8px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        word-break: break-word;
     }
     
     .entity-meta {
@@ -79,6 +420,7 @@
     .meta-item {
         display: flex;
         gap: 4px;
+        align-items: center;
     }
     
     .meta-label {
@@ -115,6 +457,7 @@
         border-color: var(--error-red);
     }
     
+    /* Entity Context */
     .entity-context {
         padding: 12px 16px;
         background: rgba(0, 102, 255, 0.05);
@@ -124,39 +467,76 @@
     
     .context-label {
         font-family: var(--font-mono);
-        font-weight: 500;
+        font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         margin-bottom: 4px;
+        font-size: 10px;
     }
     
+    /* Matches Container */
     .matches-container {
         padding: 16px;
     }
     
+    .matches-title {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        color: var(--structure-black);
+    }
+    
     .match-item {
-        border: 1px solid var(--system-gray);
+        border: var(--border-width) solid var(--system-gray);
         margin-bottom: 12px;
         position: relative;
         background: var(--primary-white);
-        transition: border-color 0.2s ease;
+        transition: all 0.2s ease;
+    }
+    
+    .match-item::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+        background: var(--system-gray);
+        z-index: -1;
+        transition: all 0.2s ease;
     }
     
     .match-item:hover {
         border-color: var(--accent-blue);
     }
     
+    .match-item:hover::before {
+        background: var(--accent-blue);
+    }
+    
     .match-item.approved {
         border-color: var(--success-green);
-        border-width: 2px;
+        border-width: var(--border-width);
+    }
+    
+    .match-item.approved::before {
+        background: var(--success-green);
     }
     
     .match-item.rejected {
         border-color: var(--error-red);
-        border-width: 2px;
+        border-width: var(--border-width);
         opacity: 0.7;
     }
     
+    .match-item.rejected::before {
+        background: var(--error-red);
+    }
+    
+    /* Match Header */
     .match-header {
         padding: 12px;
         display: flex;
@@ -166,11 +546,16 @@
         border-bottom: 1px solid var(--system-gray);
     }
     
+    .match-info {
+        flex: 1;
+    }
+    
     .match-name {
         font-family: var(--font-mono);
         font-size: 14px;
         font-weight: 700;
         margin-bottom: 4px;
+        color: var(--structure-black);
     }
     
     .match-source {
@@ -183,18 +568,30 @@
     
     .match-score {
         font-family: var(--font-mono);
-        font-size: 12px;
+        font-size: 16px;
         font-weight: 700;
         color: var(--accent-blue);
+        text-align: right;
     }
     
+    .match-score-label {
+        font-family: var(--font-mono);
+        font-size: 8px;
+        color: var(--system-gray);
+        text-transform: uppercase;
+        margin-top: 2px;
+    }
+    
+    /* Match Description */
     .match-description {
         padding: 12px;
         font-size: 12px;
         line-height: 1.4;
         border-bottom: 1px solid var(--system-gray);
+        background: var(--primary-white);
     }
     
+    /* Match Metadata */
     .match-metadata {
         padding: 12px;
         background: rgba(128, 128, 128, 0.05);
@@ -216,36 +613,40 @@
     
     .metadata-label {
         font-family: var(--font-mono);
-        font-weight: 500;
+        font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         color: var(--system-gray);
+        font-size: 9px;
     }
     
     .metadata-value {
-        font-family: var(--font-mono);
-        font-size: 10px;
+        font-weight: 500;
         color: var(--structure-black);
     }
     
+    /* Match Actions */
     .match-actions {
         padding: 12px;
         display: flex;
         gap: 8px;
-        justify-content: flex-end;
+        flex-wrap: wrap;
+        background: var(--primary-white);
     }
     
     .action-btn {
-        padding: 8px 16px;
-        border: none;
+        padding: 8px 12px;
         font-family: var(--font-mono);
-        font-size: 10px;
-        font-weight: 700;
+        font-size: 9px;
+        font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 1px;
+        border: none;
         cursor: pointer;
         position: relative;
         transition: all 0.1s ease;
+        flex: 1;
+        min-width: 80px;
     }
     
     .action-btn::before {
@@ -270,6 +671,22 @@
         transform: translate(1px, 1px);
     }
     
+    .action-btn:active::before {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+    
+    .action-btn.view {
+        background: var(--system-gray);
+        color: var(--primary-white);
+    }
+    
+    .action-btn.view::before {
+        background: var(--structure-black);
+    }
+    
     .action-btn.approve {
         background: var(--success-green);
         color: var(--primary-white);
@@ -288,97 +705,159 @@
         background: var(--structure-black);
     }
     
-    .action-btn.view {
-        background: var(--accent-blue);
-        color: var(--primary-white);
-    }
-    
-    .action-btn.view::before {
-        background: var(--structure-black);
-    }
-    
     .action-btn:disabled {
         opacity: 0.6;
         cursor: not-allowed;
     }
     
+    /* No Matches State */
     .no-matches {
         text-align: center;
-        padding: 32px;
+        padding: 40px 20px;
         color: var(--system-gray);
         font-family: var(--font-mono);
         font-size: 12px;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border: 2px dashed var(--system-gray);
-    }
-    
-    .pagination-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 16px;
-        margin: 24px 0;
-        padding: 16px;
-        background: rgba(128, 128, 128, 0.1);
-        border: 1px solid var(--system-gray);
-    }
-    
-    .pagination-btn {
-        padding: 8px 16px;
-        background: var(--structure-black);
-        color: var(--primary-white);
-        border: none;
-        font-family: var(--font-mono);
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
         letter-spacing: 1px;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-block;
+        border: 2px dashed var(--system-gray);
+        background: rgba(128, 128, 128, 0.05);
     }
     
-    .pagination-btn:hover {
-        background: var(--accent-blue);
-    }
-    
-    .pagination-btn:disabled {
-        background: var(--system-gray);
-        cursor: not-allowed;
+    /* Pagination Block */
+    .pagination-block {
+        grid-area: pagination;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     
     .pagination-info {
         font-family: var(--font-mono);
-        font-size: 11px;
+        font-size: 12px;
         color: var(--system-gray);
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
     
-    .bulk-actions {
+    .pagination-controls {
         display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
+        gap: 8px;
+        align-items: center;
     }
     
-    .keyboard-shortcuts {
-        font-size: 10px;
-        color: var(--system-gray);
+    .pagination-btn {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        font-size: 16px;
+    }
+    
+    /* Status Messages */
+    .status-message {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 16px;
         font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-top: 8px;
+        border: var(--border-width) solid var(--structure-black);
+        z-index: 1000;
+        opacity: 0;
+        transform: translateY(-20px);
+        transition: all 0.3s ease;
+    }
+    
+    .status-message.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    
+    .status-message.success {
+        background: var(--success-green);
+        color: var(--primary-white);
+    }
+    
+    .status-message.error {
+        background: var(--error-red);
+        color: var(--primary-white);
+    }
+    
+    .status-message.warning {
+        background: var(--warning-orange);
+        color: var(--primary-white);
+    }
+    
+    .status-message::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+        background: var(--structure-black);
+        z-index: -1;
+    }
+    
+    /* Animations */
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+        .review-bento-grid {
+            grid-template-areas:
+                "header header header header header header header header header header header header"
+                "stats stats stats stats stats stats stats stats stats stats stats stats"
+                "controls controls controls controls controls controls filters filters filters filters filters filters"
+                "entities entities entities entities entities entities entities entities entities entities entities entities"
+                "pagination pagination pagination pagination pagination pagination pagination pagination pagination pagination pagination pagination";
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .filters-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
     }
     
     @media (max-width: 768px) {
-        .review-header {
+        .review-bento-grid {
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-areas:
+                "header header header header header header"
+                "stats stats stats stats stats stats"
+                "controls controls controls controls controls controls"
+                "filters filters filters filters filters filters"
+                "entities entities entities entities entities entities"
+                "pagination pagination pagination pagination pagination pagination";
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .filters-grid {
             grid-template-columns: 1fr;
         }
         
-        .filter-grid {
-            grid-template-columns: 1fr;
+        .controls-block {
+            flex-direction: column;
+            align-items: stretch;
         }
         
         .match-header {
@@ -392,575 +871,649 @@
         }
         
         .match-actions {
-            justify-content: center;
+            flex-direction: column;
         }
         
         .bulk-actions {
             flex-direction: column;
         }
+    }
+    
+    @media (max-width: 480px) {
+        .system-title {
+            font-size: 20px;
+        }
         
-        .pagination-container {
-            flex-direction: column;
-            gap: 8px;
+        .entity-name {
+            font-size: 16px;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    /* High contrast mode */
+    @media (prefers-contrast: high) {
+        :root {
+            --primary-white: #FFFFFF;
+            --structure-black: #000000;
+            --system-gray: #666666;
+            --accent-blue: #0033CC;
+        }
+    }
+    
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
         }
     }
 </style>
-{% endblock %}
 
-{% block content %}
-<div class="review-header">
-    <div class="brutalist-block">
-        <h1 class="system-title">Match Review Module</h1>
-        <div class="subsection-title">JOB: {{ job.filename }} | STATUS: REVIEW_PHASE</div>
-        
-        <div class="status-grid">
-            <div class="status-card">
-                <div class="status-value">{{ job.total_entities }}</div>
-                <div class="status-label">Total Entities</div>
-            </div>
-            <div class="status-card">
-                <div class="status-value">{{ job.successful_matches }}</div>
-                <div class="status-label">Matches Found</div>
-            </div>
-            <div class="status-card">
-                <div class="status-value">{{ pagination.total }}</div>
-                <div class="status-label">Displayed</div>
-            </div>
-            <div class="status-card">
-                <div class="status-value">{{ "{:.1f}".format((job.successful_matches / job.total_entities * 100) if job.total_entities > 0 else 0) }}%</div>
-                <div class="status-label">Match Rate</div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="brutalist-block review-controls">
-        <button class="brutalist-btn success" onclick="batchApproveHighConfidence()">
-            Batch Approve High Confidence
-        </button>
-        <button class="brutalist-btn secondary" onclick="exportCurrentView()">
-            Export Current View
-        </button>
-        <button class="brutalist-btn secondary" onclick="toggleFilterPanel()">
-            Toggle Filters
-        </button>
-    </div>
-</div>
-
-<!-- Filter Panel -->
-<div class="brutalist-block filter-panel" id="filter-panel" style="display: none;">
-    <h3 class="subsection-title">Filter & Search Controls</h3>
-    
-    <div class="filter-grid">
-        <div class="field-group">
-            <label class="field-label" for="entity-search">Entity Search</label>
-            <input type="text" id="entity-search" class="field-input" placeholder="Search entity names..." onkeyup="filterEntities()">
+<div class="brutalist-container">
+    <div class="review-bento-grid">
+        <!-- Header Block -->
+        <div class="brutalist-block header-block">
+            <h1 class="system-title">Match Review Module</h1>
+            <p class="job-subtitle">Job: {{ job.filename }} | Status: Review_Phase</p>
         </div>
         
-        <div class="field-group">
-            <label class="field-label" for="confidence-filter">Min Confidence</label>
-            <select id="confidence-filter" class="field-select" onchange="filterEntities()">
-                <option value="0">All Confidence Levels</option>
-                <option value="0.7">Medium+ (0.7)</option>
-                <option value="0.8">High+ (0.8)</option>
-                <option value="0.9">Very High+ (0.9)</option>
-            </select>
-        </div>
-        
-        <div class="field-group">
-            <label class="field-label" for="source-filter">Source Authority</label>
-            <select id="source-filter" class="field-select" onchange="filterEntities()">
-                <option value="">All Sources</option>
-                <option value="wikidata">Wikidata</option>
-                <option value="viaf">VIAF</option>
-                <option value="getty">Getty</option>
-                <option value="loc">Library of Congress</option>
-            </select>
-        </div>
-        
-        <div class="field-group">
-            <label class="field-label" for="approval-filter">Approval Status</label>
-            <select id="approval-filter" class="field-select" onchange="filterEntities()">
-                <option value="">All Matches</option>
-                <option value="approved">Approved Only</option>
-                <option value="rejected">Rejected Only</option>
-                <option value="pending">Pending Review</option>
-            </select>
-        </div>
-    </div>
-    
-    <div class="bulk-actions">
-        <button class="brutalist-btn" onclick="selectAllVisible()">Select All Visible</button>
-        <button class="brutalist-btn" onclick="clearSelections()">Clear Selections</button>
-        <button class="brutalist-btn success" onclick="approveSelected()">Approve Selected</button>
-        <button class="brutalist-btn danger" onclick="rejectSelected()">Reject Selected</button>
-    </div>
-    
-    <div class="keyboard-shortcuts">
-        Keyboard: A = Approve | R = Reject | ↑↓ = Navigate | Ctrl+A = Select All | Ctrl+B = Batch Approve
-    </div>
-</div>
-
-<!-- Entity Results -->
-<div id="results-container">
-    {% for result in results %}
-    <div class="entity-container" data-entity-id="{{ result.entity.id }}" data-confidence="{{ result.confidence }}">
-        <div class="entity-header">
-            <div class="entity-name">{{ result.entity.name }}</div>
-            <div class="entity-meta">
-                <div class="meta-item">
-                    <span class="meta-label">Type:</span>
-                    <span>{{ result.entity.type | title }}</span>
+        <!-- Stats Block -->
+        <div class="brutalist-block stats-block">
+            <h2 class="field-label">Review Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">{{ results | length }}</div>
+                    <div class="stat-label">Total Entities</div>
                 </div>
-                <div class="meta-item">
-                    <span class="meta-label">Confidence:</span>
-                    <span class="confidence-badge {{ result.confidence }}">{{ result.confidence | title }}</span>
+                <div class="stat-card success">
+                    <div class="stat-value" id="approved-count">0</div>
+                    <div class="stat-label">Approved</div>
                 </div>
-                <div class="meta-item">
-                    <span class="meta-label">Sources:</span>
-                    <span>{{ result.sources_queried | join(', ') | upper }}</span>
+                <div class="stat-card error">
+                    <div class="stat-value" id="rejected-count">0</div>
+                    <div class="stat-label">Rejected</div>
                 </div>
-                {% if result.cached %}
-                <div class="meta-item">
-                    <span class="confidence-badge" style="background: var(--accent-blue); border-color: var(--accent-blue);">CACHED</span>
+                <div class="stat-card warning">
+                    <div class="stat-value" id="pending-count">{{ results | length }}</div>
+                    <div class="stat-label">Pending</div>
                 </div>
-                {% endif %}
             </div>
         </div>
         
-        {% if result.entity.context %}
-        <div class="entity-context">
-            <div class="context-label">Context Information:</div>
-            {% for key, value in result.entity.context.items() %}
-                <span style="margin-right: 16px;"><strong>{{ key | replace('_', ' ') | title }}:</strong> {{ value }}</span>
-            {% endfor %}
+        <!-- Controls Block -->
+        <div class="brutalist-block controls-block">
+            <button class="bulk-toggle" onclick="toggleBulkOperations()" id="bulk-toggle">
+                BULK OPERATIONS
+            </button>
+            
+            <button class="brutalist-btn success" onclick="batchApproveHighConfidence()">
+                APPROVE HIGH CONFIDENCE
+            </button>
+            
+            <button class="brutalist-btn secondary" onclick="exportCurrentView()">
+                EXPORT VIEW
+            </button>
+            
+            <a href="{{ url_for('export_job', job_id=job.id) }}" class="brutalist-btn">
+                PROCEED TO EXPORT
+            </a>
+            
+            <a href="/jobs" class="brutalist-btn secondary">
+                BACK TO JOBS
+            </a>
         </div>
-        {% endif %}
         
-        <div class="matches-container">
-            {% if result.matches %}
-                {% for match in result.matches[:5] %}
-                <div class="match-item" data-entity-id="{{ result.entity.id }}" data-match-id="{{ match.id }}">
-                    <div class="match-header">
-                        <div>
-                            <div class="match-name">{{ match.name }}</div>
-                            <div class="match-source">{{ match.source | upper }} | ID: {{ match.id }}</div>
+        <!-- Filters Block -->
+        <div class="brutalist-block filters-block">
+            <h2 class="field-label">Filter & Search</h2>
+            <div class="filters-grid">
+                <div class="field-group">
+                    <label class="field-label">Search Entities</label>
+                    <input type="text" class="field-input" id="entity-search" placeholder="Search entity names..." onkeyup="filterEntities()">
+                </div>
+                
+                <div class="field-group">
+                    <label class="field-label">Min Confidence</label>
+                    <select class="field-select" id="confidence-filter" onchange="filterEntities()">
+                        <option value="0">All Confidence Levels</option>
+                        <option value="0.7">Medium+ (0.7)</option>
+                        <option value="0.8">High+ (0.8)</option>
+                        <option value="0.9">Very High+ (0.9)</option>
+                    </select>
+                </div>
+                
+                <div class="field-group">
+                    <label class="field-label">Source Authority</label>
+                    <select class="field-select" id="source-filter" onchange="filterEntities()">
+                        <option value="">All Sources</option>
+                        <option value="wikidata">Wikidata</option>
+                        <option value="viaf">VIAF</option>
+                        <option value="getty">Getty</option>
+                        <option value="loc">Library of Congress</option>
+                    </select>
+                </div>
+                
+                <div class="field-group">
+                    <label class="field-label">Review Status</label>
+                    <select class="field-select" id="approval-filter" onchange="filterEntities()">
+                        <option value="">All Matches</option>
+                        <option value="approved">Approved Only</option>
+                        <option value="rejected">Rejected Only</option>
+                        <option value="pending">Pending Review</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Entities Container -->
+        <div class="brutalist-block entities-container">
+            <!-- Bulk Operations Panel -->
+            <div class="bulk-operations" id="bulk-operations">
+                <div class="bulk-header">
+                    <span id="selected-count">0</span> ENTITIES SELECTED
+                </div>
+                <div class="bulk-actions">
+                    <button class="brutalist-btn success" onclick="approveSelected()">APPROVE SELECTED</button>
+                    <button class="brutalist-btn error" onclick="rejectSelected()">REJECT SELECTED</button>
+                    <button class="brutalist-btn secondary" onclick="clearSelections()">CLEAR SELECTION</button>
+                </div>
+            </div>
+            
+            <!-- Entities List -->
+            <div class="entities-list" id="entities-list">
+                {% for result in results %}
+                <div class="entity-card" 
+                     data-entity-id="{{ result.entity.id }}" 
+                     data-confidence="{{ 'high' if result.highest_confidence > 0.8 else 'medium' if result.highest_confidence > 0.6 else 'low' }}">
+                    
+                    <!-- Entity Header -->
+                    <div class="entity-header">
+                        <div class="entity-header-content">
+                            <div style="display: flex; align-items: start;">
+                                <input type="checkbox" class="entity-select" value="{{ result.entity.id }}" onchange="updateSelection()">
+                                <div>
+                                    <div class="entity-name">{{ result.entity.name }}</div>
+                                    <div class="entity-meta">
+                                        <div class="meta-item">
+                                            <span class="meta-label">Type:</span>
+                                            <span>{{ result.entity.type or 'Unknown' }}</span>
+                                        </div>
+                                        <div class="meta-item">
+                                            <span class="meta-label">Matches:</span>
+                                            <span>{{ result.matches | length }}</span>
+                                        </div>
+                                        <div class="meta-item">
+                                            <span class="meta-label">Best:</span>
+                                            <span class="confidence-badge {{ 'high' if result.highest_confidence > 0.8 else 'medium' if result.highest_confidence > 0.6 else 'low' }}">
+                                                {{ "%.3f" | format(result.highest_confidence) }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="match-score">{{ "%.3f" | format(match.score) }}</div>
                     </div>
                     
-                    {% if match.description %}
-                    <div class="match-description">{{ match.description }}</div>
+                    <!-- Entity Context (if available) -->
+                    {% if result.entity.context %}
+                    <div class="entity-context">
+                        <div class="context-label">Context Information</div>
+                        <div>{{ result.entity.context }}</div>
+                    </div>
                     {% endif %}
                     
-                    {% if match.additional_info %}
-                    <div class="match-metadata">
-                        <div class="metadata-grid">
-                            {% for key, value in match.additional_info.items() %}
-                                {% if key not in ['uri', 'scope_note'] and value and key != 'search_method' %}
-                                <div class="metadata-item">
-                                    <span class="metadata-label">{{ key | replace('_', ' ') | title }}</span>
-                                    <span class="metadata-value">{{ value }}</span>
+                    <!-- Matches Container -->
+                    <div class="matches-container">
+                        <h3 class="matches-title">Authority Matches ({{ result.matches | length }})</h3>
+                        
+                        {% if result.matches %}
+                            {% for match in result.matches[:5] %}
+                            <div class="match-item" data-match-id="{{ match.id }}">
+                                <!-- Match Header -->
+                                <div class="match-header">
+                                    <div class="match-info">
+                                        <div class="match-name">{{ match.name }}</div>
+                                        <div class="match-source">{{ match.source | upper }} | ID: {{ match.id }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="match-score">{{ "%.3f" | format(match.score) }}</div>
+                                        <div class="match-score-label">Confidence</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Match Description -->
+                                {% if match.description %}
+                                <div class="match-description">{{ match.description }}</div>
+                                {% endif %}
+                                
+                                <!-- Match Metadata -->
+                                {% if match.additional_info %}
+                                <div class="match-metadata">
+                                    <div class="metadata-grid">
+                                        {% for key, value in match.additional_info.items() %}
+                                            {% if key not in ['uri', 'scope_note'] and value and key != 'search_method' %}
+                                            <div class="metadata-item">
+                                                <span class="metadata-label">{{ key | replace('_', ' ') | title }}</span>
+                                                <span class="metadata-value">{{ value }}</span>
+                                            </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
                                 </div>
                                 {% endif %}
+                                
+                                <!-- Match Actions -->
+                                <div class="match-actions">
+                                    <button class="action-btn view" onclick="viewMatchDetails('{{ match.id }}', '{{ match.source }}')">
+                                        VIEW DETAILS
+                                    </button>
+                                    <button class="action-btn approve" onclick="approveMatch('{{ result.entity.id }}', '{{ match.id }}', true)">
+                                        ✓ APPROVE
+                                    </button>
+                                    <button class="action-btn reject" onclick="approveMatch('{{ result.entity.id }}', '{{ match.id }}', false)">
+                                        ✗ REJECT
+                                    </button>
+                                </div>
+                            </div>
                             {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-                    
-                    <div class="match-actions">
-                        <button class="action-btn view" onclick="viewMatchDetails('{{ match.id }}', '{{ match.source }}')">
-                            View Details
-                        </button>
-                        <button class="action-btn approve" onclick="approveMatch('{{ result.entity.id }}', '{{ match.id }}', true)">
-                            ✓ Approve
-                        </button>
-                        <button class="action-btn reject" onclick="approveMatch('{{ result.entity.id }}', '{{ match.id }}', false)">
-                            ✗ Reject
-                        </button>
+                            
+                            {% if result.matches | length > 5 %}
+                            <div class="no-matches" style="padding: 12px; font-size: 10px;">
+                                ... and {{ result.matches | length - 5 }} more matches available
+                            </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="no-matches">
+                                No authority matches found for this entity
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
-                
-                {% if result.matches | length > 5 %}
-                <div class="no-matches">
-                    ... and {{ result.matches | length - 5 }} more matches available
-                </div>
+            </div>
+        </div>
+        
+        <!-- Pagination Block -->
+        <div class="brutalist-block pagination-block">
+            <div class="pagination-info">
+                Showing {{ ((pagination.page - 1) * pagination.per_page + 1) if results else 0 }}-{{ pagination.page * pagination.per_page if pagination.page * pagination.per_page < pagination.total else pagination.total }} of {{ pagination.total }} entities
+            </div>
+            <div class="pagination-controls">
+                {% if pagination.has_prev %}
+                    <a href="{{ url_for('review_job', job_id=job.id, page=pagination.prev_num) }}" class="brutalist-btn pagination-btn">‹</a>
+                {% else %}
+                    <button class="brutalist-btn pagination-btn" disabled>‹</button>
                 {% endif %}
-            {% else %}
-                <div class="no-matches">
-                    No authority matches found for this entity
-                </div>
-            {% endif %}
+                
+                <span class="pagination-info">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+                
+                {% if pagination.has_next %}
+                    <a href="{{ url_for('review_job', job_id=job.id, page=pagination.next_num) }}" class="brutalist-btn pagination-btn">›</a>
+                {% else %}
+                    <button class="brutalist-btn pagination-btn" disabled>›</button>
+                {% endif %}
+            </div>
         </div>
     </div>
-    {% endfor %}
 </div>
 
-<!-- Pagination -->
-{% if pagination.pages > 1 %}
-<div class="pagination-container">
-    {% if pagination.has_prev %}
-        <a href="{{ url_for('review', job_id=job.id, page=pagination.prev_num) }}" class="pagination-btn">‹ Previous</a>
-    {% endif %}
-    
-    <div class="pagination-info">
-        Page {{ pagination.page }} of {{ pagination.pages }} | {{ pagination.total }} Total Results
-    </div>
-    
-    {% if pagination.has_next %}
-        <a href="{{ url_for('review', job_id=job.id, page=pagination.next_num) }}" class="pagination-btn">Next ›</a>
-    {% endif %}
-</div>
-{% endif %}
+<!-- Status Messages Container -->
+<div id="status-messages"></div>
 
-<!-- Action Footer -->
-<div class="brutalist-block" style="text-align: center;">
-    <a href="{{ url_for('export_page', job_id=job.id) }}" class="brutalist-btn success">Proceed to Export</a>
-    <a href="{{ url_for('processing', job_id=job.id) }}" class="brutalist-btn secondary">Back to Processing</a>
-    <a href="{{ url_for('jobs_list') }}" class="brutalist-btn secondary">View All Jobs</a>
-</div>
-{% endblock %}
-
-{% block scripts %}
 <script>
-    let selectedMatches = new Set();
-    let focusedEntityIndex = 0;
-    const entities = document.querySelectorAll('.entity-container');
-    
-    function approveMatch(entityId, matchId, approved) {
-        const matchCard = document.querySelector(`[data-entity-id="${entityId}"][data-match-id="${matchId}"]`);
-        const approveBtn = matchCard.querySelector('.approve');
-        const rejectBtn = matchCard.querySelector('.reject');
-        
-        // Disable buttons during request
-        approveBtn.disabled = true;
-        rejectBtn.disabled = true;
-        showLoading(matchCard);
-        
-        fetch(`/api/job/{{ job.id }}/approve_match`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                entity_id: entityId,
-                match_id: matchId,
-                approved: approved
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Update visual state
-                if (approved) {
-                    matchCard.classList.add('approved');
-                    matchCard.classList.remove('rejected');
-                    approveBtn.textContent = '✓ Approved';
-                    rejectBtn.textContent = '✗ Reject';
-                } else {
-                    matchCard.classList.add('rejected');
-                    matchCard.classList.remove('approved');
-                    rejectBtn.textContent = '✗ Rejected';
-                    approveBtn.textContent = '✓ Approve';
-                }
-                
-                showSuccessMessage(`Match ${approved ? 'approved' : 'rejected'} successfully`);
-            } else {
-                showErrorMessage('Error updating match: ' + (data.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showErrorMessage('Network error updating match');
-        })
-        .finally(() => {
-            // Re-enable buttons
-            approveBtn.disabled = false;
-            rejectBtn.disabled = false;
-            hideLoading(matchCard);
-        });
-    }
-    
-    function viewMatchDetails(matchId, source) {
-        let url;
-        switch(source.toLowerCase()) {
-            case 'wikidata':
-                url = `https://www.wikidata.org/entity/${matchId}`;
-                break;
-            case 'viaf':
-                url = `https://viaf.org/viaf/${matchId}`;
-                break;
-            case 'getty':
-                url = `http://vocab.getty.edu/page/${matchId}`;
-                break;
-            default:
-                showErrorMessage('Unknown source: ' + source);
-                return;
+    class ReviewManager {
+        constructor() {
+            this.selectedEntities = new Set();
+            this.approvedCount = 0;
+            this.rejectedCount = 0;
+            this.pendingCount = {{ results | length }};
+            
+            this.setupEventListeners();
+            this.setupKeyboardShortcuts();
+            this.updateStats();
         }
         
-        window.open(url, '_blank');
-    }
-    
-    function batchApproveHighConfidence() {
-        const highConfidenceMatches = document.querySelectorAll('[data-confidence="high"] .match-item .approve');
-        const confirmMsg = `This will approve ${highConfidenceMatches.length} high-confidence matches. Continue?`;
+        setupEventListeners() {
+            // Entity selection checkboxes
+            document.addEventListener('change', (e) => {
+                if (e.target.classList.contains('entity-select')) {
+                    this.updateSelection();
+                }
+            });
+            
+            // Real-time search
+            const searchInput = document.getElementById('entity-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', () => this.filterEntities());
+            }
+        }
         
-        if (confirm(confirmMsg)) {
-            let processed = 0;
-            const total = highConfidenceMatches.length;
-            
-            showSuccessMessage(`Starting batch approval of ${total} matches...`);
-            
-            highConfidenceMatches.forEach((btn, index) => {
-                setTimeout(() => {
-                    btn.click();
-                    processed++;
-                    if (processed === total) {
-                        showSuccessMessage(`Batch approval complete: ${total} matches processed`);
+        setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    switch(e.key) {
+                        case 'a':
+                            e.preventDefault();
+                            this.selectAllEntities();
+                            break;
+                        case 'f':
+                            e.preventDefault();
+                            document.getElementById('entity-search').focus();
+                            break;
+                        case 'b':
+                            e.preventDefault();
+                            this.toggleBulkOperations();
+                            break;
                     }
-                }, index * 200); // Stagger requests
+                }
             });
         }
-    }
-    
-    function toggleFilterPanel() {
-        const panel = document.getElementById('filter-panel');
-        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    }
-    
-    function filterEntities() {
-        const searchTerm = document.getElementById('entity-search').value.toLowerCase();
-        const minConfidence = parseFloat(document.getElementById('confidence-filter').value) || 0;
-        const sourceFilter = document.getElementById('source-filter').value;
-        const approvalFilter = document.getElementById('approval-filter').value;
         
-        let visibleCount = 0;
+        updateSelection() {
+            const checkboxes = document.querySelectorAll('.entity-select');
+            const bulkOps = document.getElementById('bulk-operations');
+            const selectedCount = document.getElementById('selected-count');
+            
+            this.selectedEntities.clear();
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    this.selectedEntities.add(cb.value);
+                    cb.closest('.entity-card').classList.add('selected');
+                } else {
+                    cb.closest('.entity-card').classList.remove('selected');
+                }
+            });
+            
+            selectedCount.textContent = this.selectedEntities.size;
+            
+            if (this.selectedEntities.size > 0) {
+                bulkOps.classList.add('show');
+            } else {
+                bulkOps.classList.remove('show');
+            }
+        }
         
-        entities.forEach(entity => {
-            const entityName = entity.querySelector('.entity-name').textContent.toLowerCase();
-            const entityConfidence = entity.dataset.confidence;
+        selectAllEntities() {
+            const checkboxes = document.querySelectorAll('.entity-select:not(:disabled)');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
             
-            let shouldShow = true;
+            checkboxes.forEach(cb => {
+                cb.checked = !allChecked;
+            });
             
-            // Text search
-            if (searchTerm && !entityName.includes(searchTerm)) {
-                shouldShow = false;
-            }
+            this.updateSelection();
+        }
+        
+        clearSelections() {
+            document.querySelectorAll('.entity-select').forEach(cb => {
+                cb.checked = false;
+            });
+            this.updateSelection();
+        }
+        
+        toggleBulkOperations() {
+            const bulkOps = document.getElementById('bulk-operations');
+            const toggle = document.getElementById('bulk-toggle');
             
-            // Confidence filter
-            const confidenceScore = getConfidenceScore(entityConfidence);
-            if (confidenceScore < minConfidence) {
-                shouldShow = false;
-            }
+            bulkOps.classList.toggle('show');
+            toggle.classList.toggle('active');
+        }
+        
+        filterEntities() {
+            const searchTerm = document.getElementById('entity-search').value.toLowerCase();
+            const minConfidence = parseFloat(document.getElementById('confidence-filter').value) || 0;
+            const sourceFilter = document.getElementById('source-filter').value;
+            const approvalFilter = document.getElementById('approval-filter').value;
             
-            // Source filter
-            if (sourceFilter) {
-                const sources = entity.querySelector('.entity-meta').textContent.toLowerCase();
-                if (!sources.includes(sourceFilter.toLowerCase())) {
+            const entityCards = document.querySelectorAll('.entity-card');
+            let visibleCount = 0;
+            
+            entityCards.forEach(card => {
+                const entityName = card.querySelector('.entity-name').textContent.toLowerCase();
+                const confidenceBadge = card.querySelector('.confidence-badge');
+                const confidence = confidenceBadge ? parseFloat(confidenceBadge.textContent) : 0;
+                
+                let shouldShow = true;
+                
+                // Text search
+                if (searchTerm && !entityName.includes(searchTerm)) {
                     shouldShow = false;
                 }
+                
+                // Confidence filter
+                if (confidence < minConfidence) {
+                    shouldShow = false;
+                }
+                
+                // Source filter
+                if (sourceFilter) {
+                    const sources = card.querySelector('.entity-meta').textContent.toLowerCase();
+                    if (!sources.includes(sourceFilter.toLowerCase())) {
+                        shouldShow = false;
+                    }
+                }
+                
+                // Approval filter
+                if (approvalFilter) {
+                    const matches = card.querySelectorAll('.match-item');
+                    let hasApprovalStatus = false;
+                    
+                    matches.forEach(match => {
+                        if (approvalFilter === 'approved' && match.classList.contains('approved')) {
+                            hasApprovalStatus = true;
+                        } else if (approvalFilter === 'rejected' && match.classList.contains('rejected')) {
+                            hasApprovalStatus = true;
+                        } else if (approvalFilter === 'pending' && !match.classList.contains('approved') && !match.classList.contains('rejected')) {
+                            hasApprovalStatus = true;
+                        }
+                    });
+                    
+                    if (!hasApprovalStatus) {
+                        shouldShow = false;
+                    }
+                }
+                
+                card.style.display = shouldShow ? 'block' : 'none';
+                if (shouldShow) visibleCount++;
+            });
+            
+            console.log(`📊 Showing ${visibleCount} of ${entityCards.length} entities`);
+        }
+        
+        approveMatch(entityId, matchId, approve) {
+            const matchCard = document.querySelector(`[data-match-id="${matchId}"]`);
+            const approveBtn = matchCard.querySelector('.approve');
+            const rejectBtn = matchCard.querySelector('.reject');
+            
+            // Disable buttons during request
+            approveBtn.disabled = true;
+            rejectBtn.disabled = true;
+            
+            this.showLoading(matchCard);
+            
+            fetch(`/api/matches/${matchId}/approve`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    entity_id: entityId,
+                    approved: approve
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update match styling
+                    matchCard.classList.remove('approved', 'rejected');
+                    matchCard.classList.add(approve ? 'approved' : 'rejected');
+                    
+                    // Update stats
+                    if (approve) {
+                        this.approvedCount++;
+                        if (this.pendingCount > 0) this.pendingCount--;
+                    } else {
+                        this.rejectedCount++;
+                        if (this.pendingCount > 0) this.pendingCount--;
+                    }
+                    
+                    this.updateStats();
+                    this.showStatusMessage(`Match ${approve ? 'approved' : 'rejected'} successfully`, 'success');
+                } else {
+                    this.showStatusMessage('Error updating match: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                this.showStatusMessage('Network error updating match', 'error');
+            })
+            .finally(() => {
+                // Re-enable buttons
+                approveBtn.disabled = false;
+                rejectBtn.disabled = false;
+                this.hideLoading(matchCard);
+            });
+        }
+        
+        viewMatchDetails(matchId, source) {
+            let url;
+            switch(source.toLowerCase()) {
+                case 'wikidata':
+                    url = `https://www.wikidata.org/entity/${matchId}`;
+                    break;
+                case 'viaf':
+                    url = `https://viaf.org/viaf/${matchId}`;
+                    break;
+                case 'getty':
+                    url = `http://vocab.getty.edu/page/${matchId}`;
+                    break;
+                default:
+                    this.showStatusMessage('Unknown source: ' + source, 'error');
+                    return;
             }
             
-            // Approval filter
-            if (approvalFilter) {
-                const matches = entity.querySelectorAll('.match-item');
-                let hasApprovalStatus = false;
+            window.open(url, '_blank');
+        }
+        
+        batchApproveHighConfidence() {
+            const highConfidenceMatches = document.querySelectorAll('[data-confidence="high"] .match-item .approve');
+            const confirmMsg = `This will approve ${highConfidenceMatches.length} high-confidence matches. Continue?`;
+            
+            if (confirm(confirmMsg)) {
+                let processed = 0;
+                const total = highConfidenceMatches.length;
                 
-                matches.forEach(match => {
-                    if (approvalFilter === 'approved' && match.classList.contains('approved')) {
-                        hasApprovalStatus = true;
-                    } else if (approvalFilter === 'rejected' && match.classList.contains('rejected')) {
-                        hasApprovalStatus = true;
-                    } else if (approvalFilter === 'pending' && !match.classList.contains('approved') && !match.classList.contains('rejected')) {
-                        hasApprovalStatus = true;
+                this.showStatusMessage(`Starting batch approval of ${total} matches...`, 'warning');
+                
+                highConfidenceMatches.forEach((btn, index) => {
+                    setTimeout(() => {
+                        btn.click();
+                        processed++;
+                        if (processed === total) {
+                            this.showStatusMessage(`Batch approval complete: ${total} matches processed`, 'success');
+                        }
+                    }, index * 200); // Stagger requests
+                });
+            }
+        }
+        
+        approveSelected() {
+            if (this.selectedEntities.size === 0) {
+                this.showStatusMessage('No entities selected', 'error');
+                return;
+            }
+            
+            const confirmMsg = `Approve first match for ${this.selectedEntities.size} selected entities?`;
+            if (confirm(confirmMsg)) {
+                this.selectedEntities.forEach(entityId => {
+                    const entity = document.querySelector(`[data-entity-id="${entityId}"]`);
+                    const firstApproveBtn = entity.querySelector('.approve');
+                    if (firstApproveBtn) {
+                        firstApproveBtn.click();
                     }
                 });
-                
-                if (!hasApprovalStatus) {
-                    shouldShow = false;
-                }
+                this.clearSelections();
+            }
+        }
+        
+        rejectSelected() {
+            if (this.selectedEntities.size === 0) {
+                this.showStatusMessage('No entities selected', 'error');
+                return;
             }
             
-            entity.style.display = shouldShow ? 'block' : 'none';
-            if (shouldShow) visibleCount++;
-        });
-        
-        updateFilterStats(visibleCount);
-    }
-    
-    function getConfidenceScore(confidence) {
-        const scoreMap = {
-            'high': 0.8,
-            'medium': 0.6,
-            'low': 0.3
-        };
-        return scoreMap[confidence] || 0;
-    }
-    
-    function updateFilterStats(visibleCount) {
-        // Update filter stats display
-        const totalEntities = entities.length;
-        console.log(`Showing ${visibleCount} of ${totalEntities} entities`);
-    }
-    
-    function selectAllVisible() {
-        entities.forEach(entity => {
-            if (entity.style.display !== 'none') {
-                entity.classList.add('selected');
-                const entityId = entity.dataset.entityId;
-                selectedMatches.add(entityId);
+            const confirmMsg = `Reject all matches for ${this.selectedEntities.size} selected entities?`;
+            if (confirm(confirmMsg)) {
+                this.selectedEntities.forEach(entityId => {
+                    const entity = document.querySelector(`[data-entity-id="${entityId}"]`);
+                    const rejectBtns = entity.querySelectorAll('.reject');
+                    rejectBtns.forEach(btn => btn.click());
+                });
+                this.clearSelections();
             }
-        });
-        updateSelectionDisplay();
-    }
-    
-    function clearSelections() {
-        selectedMatches.clear();
-        entities.forEach(entity => {
-            entity.classList.remove('selected');
-        });
-        updateSelectionDisplay();
-    }
-    
-    function updateSelectionDisplay() {
-        console.log(`${selectedMatches.size} entities selected`);
-    }
-    
-    function approveSelected() {
-        if (selectedMatches.size === 0) {
-            showErrorMessage('No entities selected');
-            return;
         }
         
-        const confirmMsg = `Approve best matches for ${selectedMatches.size} selected entities?`;
-        if (confirm(confirmMsg)) {
-            selectedMatches.forEach(entityId => {
-                const entity = document.querySelector(`[data-entity-id="${entityId}"]`);
-                const firstApproveBtn = entity.querySelector('.approve');
-                if (firstApproveBtn) {
-                    firstApproveBtn.click();
-                }
-            });
-            clearSelections();
-        }
-    }
-    
-    function rejectSelected() {
-        if (selectedMatches.size === 0) {
-            showErrorMessage('No entities selected');
-            return;
+        exportCurrentView() {
+            this.showStatusMessage('Export functionality would be implemented here', 'warning');
         }
         
-        const confirmMsg = `Reject all matches for ${selectedMatches.size} selected entities?`;
-        if (confirm(confirmMsg)) {
-            selectedMatches.forEach(entityId => {
-                const entity = document.querySelector(`[data-entity-id="${entityId}"]`);
-                const rejectBtns = entity.querySelectorAll('.reject');
-                rejectBtns.forEach(btn => btn.click());
-            });
-            clearSelections();
+        updateStats() {
+            document.getElementById('approved-count').textContent = this.approvedCount;
+            document.getElementById('rejected-count').textContent = this.rejectedCount;
+            document.getElementById('pending-count').textContent = this.pendingCount;
         }
-    }
-    
-    function exportCurrentView() {
-        showSuccessMessage('Export functionality would be implemented here');
-    }
-    
-    function showSuccessMessage(message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = 'alert success';
-        alertDiv.innerHTML = `
-            <div class="alert-title">SUCCESS</div>
-            ${message}
-        `;
         
-        document.querySelector('.brutalist-container').insertBefore(
-            alertDiv, 
-            document.querySelector('.brutalist-container').children[1]
-        );
-        
-        setTimeout(() => alertDiv.remove(), 3000);
-    }
-    
-    function showErrorMessage(message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = 'alert error';
-        alertDiv.innerHTML = `
-            <div class="alert-title">ERROR</div>
-            ${message}
-        `;
-        
-        document.querySelector('.brutalist-container').insertBefore(
-            alertDiv, 
-            document.querySelector('.brutalist-container').children[1]
-        );
-        
-        setTimeout(() => alertDiv.remove(), 5000);
-    }
-    
-    // Keyboard navigation
-    document.addEventListener('keydown', function(e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-        
-        switch(e.key) {
-            case 'ArrowDown':
-                e.preventDefault();
-                focusedEntityIndex = Math.min(focusedEntityIndex + 1, entities.length - 1);
-                scrollToEntity(focusedEntityIndex);
-                break;
-            case 'ArrowUp':
-                e.preventDefault();
-                focusedEntityIndex = Math.max(focusedEntityIndex - 1, 0);
-                scrollToEntity(focusedEntityIndex);
-                break;
-            case 'a':
-            case 'A':
-                e.preventDefault();
-                const approveBtn = entities[focusedEntityIndex]?.querySelector('.approve');
-                if (approveBtn) approveBtn.click();
-                break;
-            case 'r':
-            case 'R':
-                e.preventDefault();
-                const rejectBtn = entities[focusedEntityIndex]?.querySelector('.reject');
-                if (rejectBtn) rejectBtn.click();
-                break;
-            case 'f':
-            case 'F':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    toggleFilterPanel();
-                }
-                break;
-            case 'b':
-            case 'B':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    batchApproveHighConfidence();
-                }
-                break;
+        showLoading(element) {
+            element.style.opacity = '0.6';
+            element.style.pointerEvents = 'none';
         }
-    });
-    
-    function scrollToEntity(index) {
-        if (entities[index]) {
-            entities[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        hideLoading(element) {
+            element.style.opacity = '1';
+            element.style.pointerEvents = 'auto';
+        }
+        
+        showStatusMessage(message, type = 'success') {
+            const container = document.getElementById('status-messages');
             
-            // Visual focus indicator
-            entities.forEach(e => e.style.outline = 'none');
-            entities[index].style.outline = '2px solid var(--accent-blue)';
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `status-message ${type}`;
+            messageDiv.textContent = message;
+            
+            container.appendChild(messageDiv);
+            
+            // Show message
+            setTimeout(() => messageDiv.classList.add('show'), 100);
+            
+            // Hide and remove message
+            setTimeout(() => {
+                messageDiv.classList.remove('show');
+                setTimeout(() => container.removeChild(messageDiv), 300);
+            }, 3000);
         }
     }
     
-    // Initialize
+    // Initialize review manager
+    let reviewManager;
     document.addEventListener('DOMContentLoaded', function() {
-        // Focus first entity
-        if (entities.length > 0) {
-            scrollToEntity(0);
-        }
-        
-        // Show filter panel by default
-        document.getElementById('filter-panel').style.display = 'block';
+        reviewManager = new ReviewManager();
     });
+    
+    // Global functions for template compatibility
+    function updateSelection() { reviewManager.updateSelection(); }
+    function selectAllEntities() { reviewManager.selectAllEntities(); }
+    function clearSelections() { reviewManager.clearSelections(); }
+    function toggleBulkOperations() { reviewManager.toggleBulkOperations(); }
+    function filterEntities() { reviewManager.filterEntities(); }
+    function approveMatch(entityId, matchId, approve) { reviewManager.approveMatch(entityId, matchId, approve); }
+    function viewMatchDetails(matchId, source) { reviewManager.viewMatchDetails(matchId, source); }
+    function batchApproveHighConfidence() { reviewManager.batchApproveHighConfidence(); }
+    function approveSelected() { reviewManager.approveSelected(); }
+    function rejectSelected() { reviewManager.rejectSelected(); }
+    function exportCurrentView() { reviewManager.exportCurrentView(); }
 </script>
 {% endblock %}
