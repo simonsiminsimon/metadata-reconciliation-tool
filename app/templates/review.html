@@ -1,192 +1,966 @@
 {% extends "base.html" %}
 
-{% block title %}Review Matches - {{ job.filename }}{% endblock %}
+{% block title %}Match Review Module - {{ job.filename }}{% endblock %}
+
+{% block styles %}
+<style>
+    /* Review-specific styles */
+    .review-header {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: var(--grid-gap);
+        align-items: start;
+        margin-bottom: var(--grid-gap);
+    }
+    
+    .review-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .filter-panel {
+        background: rgba(128, 128, 128, 0.1);
+        padding: 16px;
+        border: 1px solid var(--system-gray);
+        margin-bottom: var(--grid-gap);
+    }
+    
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+    
+    .entity-container {
+        border: var(--border-width) solid var(--structure-black);
+        margin-bottom: var(--grid-gap);
+        position: relative;
+        background: var(--primary-white);
+    }
+    
+    .entity-container::before {
+        content: '';
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        right: -4px;
+        bottom: -4px;
+        background: var(--system-gray);
+        z-index: -1;
+    }
+    
+    .entity-header {
+        padding: 16px;
+        background: var(--structure-black);
+        color: var(--primary-white);
+        border-bottom: var(--border-width) solid var(--structure-black);
+    }
+    
+    .entity-name {
+        font-family: var(--font-mono);
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .entity-meta {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        font-size: 11px;
+        font-family: var(--font-mono);
+        opacity: 0.9;
+    }
+    
+    .meta-item {
+        display: flex;
+        gap: 4px;
+    }
+    
+    .meta-label {
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .confidence-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border: 1px solid;
+    }
+    
+    .confidence-badge.high {
+        background: var(--success-green);
+        color: var(--primary-white);
+        border-color: var(--success-green);
+    }
+    
+    .confidence-badge.medium {
+        background: var(--warning-orange);
+        color: var(--primary-white);
+        border-color: var(--warning-orange);
+    }
+    
+    .confidence-badge.low {
+        background: var(--error-red);
+        color: var(--primary-white);
+        border-color: var(--error-red);
+    }
+    
+    .entity-context {
+        padding: 12px 16px;
+        background: rgba(0, 102, 255, 0.05);
+        border-bottom: 1px solid var(--system-gray);
+        font-size: 12px;
+    }
+    
+    .context-label {
+        font-family: var(--font-mono);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+    
+    .matches-container {
+        padding: 16px;
+    }
+    
+    .match-item {
+        border: 1px solid var(--system-gray);
+        margin-bottom: 12px;
+        position: relative;
+        background: var(--primary-white);
+        transition: border-color 0.2s ease;
+    }
+    
+    .match-item:hover {
+        border-color: var(--accent-blue);
+    }
+    
+    .match-item.approved {
+        border-color: var(--success-green);
+        border-width: 2px;
+    }
+    
+    .match-item.rejected {
+        border-color: var(--error-red);
+        border-width: 2px;
+        opacity: 0.7;
+    }
+    
+    .match-header {
+        padding: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        background: rgba(128, 128, 128, 0.05);
+        border-bottom: 1px solid var(--system-gray);
+    }
+    
+    .match-name {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+    
+    .match-source {
+        font-size: 10px;
+        color: var(--system-gray);
+        font-family: var(--font-mono);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .match-score {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--accent-blue);
+    }
+    
+    .match-description {
+        padding: 12px;
+        font-size: 12px;
+        line-height: 1.4;
+        border-bottom: 1px solid var(--system-gray);
+    }
+    
+    .match-metadata {
+        padding: 12px;
+        background: rgba(128, 128, 128, 0.05);
+        border-bottom: 1px solid var(--system-gray);
+    }
+    
+    .metadata-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 8px;
+        font-size: 11px;
+    }
+    
+    .metadata-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    .metadata-label {
+        font-family: var(--font-mono);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--system-gray);
+    }
+    
+    .metadata-value {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--structure-black);
+    }
+    
+    .match-actions {
+        padding: 12px;
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+    
+    .action-btn {
+        padding: 8px 16px;
+        border: none;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.1s ease;
+    }
+    
+    .action-btn::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+        z-index: -1;
+        transition: all 0.1s ease;
+    }
+    
+    .action-btn:hover::before {
+        top: 1px;
+        left: 1px;
+        right: -1px;
+        bottom: -1px;
+    }
+    
+    .action-btn:active {
+        transform: translate(1px, 1px);
+    }
+    
+    .action-btn.approve {
+        background: var(--success-green);
+        color: var(--primary-white);
+    }
+    
+    .action-btn.approve::before {
+        background: var(--structure-black);
+    }
+    
+    .action-btn.reject {
+        background: var(--error-red);
+        color: var(--primary-white);
+    }
+    
+    .action-btn.reject::before {
+        background: var(--structure-black);
+    }
+    
+    .action-btn.view {
+        background: var(--accent-blue);
+        color: var(--primary-white);
+    }
+    
+    .action-btn.view::before {
+        background: var(--structure-black);
+    }
+    
+    .action-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .no-matches {
+        text-align: center;
+        padding: 32px;
+        color: var(--system-gray);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border: 2px dashed var(--system-gray);
+    }
+    
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 16px;
+        margin: 24px 0;
+        padding: 16px;
+        background: rgba(128, 128, 128, 0.1);
+        border: 1px solid var(--system-gray);
+    }
+    
+    .pagination-btn {
+        padding: 8px 16px;
+        background: var(--structure-black);
+        color: var(--primary-white);
+        border: none;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .pagination-btn:hover {
+        background: var(--accent-blue);
+    }
+    
+    .pagination-btn:disabled {
+        background: var(--system-gray);
+        cursor: not-allowed;
+    }
+    
+    .pagination-info {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--system-gray);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .bulk-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
+    
+    .keyboard-shortcuts {
+        font-size: 10px;
+        color: var(--system-gray);
+        font-family: var(--font-mono);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 8px;
+    }
+    
+    @media (max-width: 768px) {
+        .review-header {
+            grid-template-columns: 1fr;
+        }
+        
+        .filter-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .match-header {
+            flex-direction: column;
+            gap: 8px;
+            align-items: start;
+        }
+        
+        .metadata-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .match-actions {
+            justify-content: center;
+        }
+        
+        .bulk-actions {
+            flex-direction: column;
+        }
+        
+        .pagination-container {
+            flex-direction: column;
+            gap: 8px;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="card">
-    <h1>Review Matches: {{ job.filename }}</h1>
-    <p>Review and approve the reconciliation matches. You can approve or reject individual matches.</p>
+<div class="review-header">
+    <div class="brutalist-block">
+        <h1 class="system-title">Match Review Module</h1>
+        <div class="subsection-title">JOB: {{ job.filename }} | STATUS: REVIEW_PHASE</div>
+        
+        <div class="status-grid">
+            <div class="status-card">
+                <div class="status-value">{{ job.total_entities }}</div>
+                <div class="status-label">Total Entities</div>
+            </div>
+            <div class="status-card">
+                <div class="status-value">{{ job.successful_matches }}</div>
+                <div class="status-label">Matches Found</div>
+            </div>
+            <div class="status-card">
+                <div class="status-value">{{ pagination.total }}</div>
+                <div class="status-label">Displayed</div>
+            </div>
+            <div class="status-card">
+                <div class="status-value">{{ "{:.1f}".format((job.successful_matches / job.total_entities * 100) if job.total_entities > 0 else 0) }}%</div>
+                <div class="status-label">Match Rate</div>
+            </div>
+        </div>
+    </div>
     
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-value">{{ job.total_entities }}</div>
-            <div class="stat-label">Total Entities</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value">{{ job.successful_matches }}</div>
-            <div class="stat-label">Successful Matches</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value">{{ pagination.total }}</div>
-            <div class="stat-label">Results Shown</div>
-        </div>
+    <div class="brutalist-block review-controls">
+        <button class="brutalist-btn success" onclick="batchApproveHighConfidence()">
+            Batch Approve High Confidence
+        </button>
+        <button class="brutalist-btn secondary" onclick="exportCurrentView()">
+            Export Current View
+        </button>
+        <button class="brutalist-btn secondary" onclick="toggleFilterPanel()">
+            Toggle Filters
+        </button>
     </div>
 </div>
 
-{% for result in results %}
-<div class="entity-card">
-    <div class="entity-name">{{ result.entity.name }}</div>
-    <div class="entity-type">
-        Type: {{ result.entity.type | title }} | 
-        Confidence: <span class="badge badge-{{ 'success' if result.confidence == 'high' else 'warning' if result.confidence == 'medium' else 'danger' }}">
-            {{ result.confidence | title }}
-        </span> |
-        Sources: {{ result.sources_queried | join(', ') }}
-        {% if result.cached %} | <span class="badge badge-info">Cached</span>{% endif %}
+<!-- Filter Panel -->
+<div class="brutalist-block filter-panel" id="filter-panel" style="display: none;">
+    <h3 class="subsection-title">Filter & Search Controls</h3>
+    
+    <div class="filter-grid">
+        <div class="field-group">
+            <label class="field-label" for="entity-search">Entity Search</label>
+            <input type="text" id="entity-search" class="field-input" placeholder="Search entity names..." onkeyup="filterEntities()">
+        </div>
+        
+        <div class="field-group">
+            <label class="field-label" for="confidence-filter">Min Confidence</label>
+            <select id="confidence-filter" class="field-select" onchange="filterEntities()">
+                <option value="0">All Confidence Levels</option>
+                <option value="0.7">Medium+ (0.7)</option>
+                <option value="0.8">High+ (0.8)</option>
+                <option value="0.9">Very High+ (0.9)</option>
+            </select>
+        </div>
+        
+        <div class="field-group">
+            <label class="field-label" for="source-filter">Source Authority</label>
+            <select id="source-filter" class="field-select" onchange="filterEntities()">
+                <option value="">All Sources</option>
+                <option value="wikidata">Wikidata</option>
+                <option value="viaf">VIAF</option>
+                <option value="getty">Getty</option>
+                <option value="loc">Library of Congress</option>
+            </select>
+        </div>
+        
+        <div class="field-group">
+            <label class="field-label" for="approval-filter">Approval Status</label>
+            <select id="approval-filter" class="field-select" onchange="filterEntities()">
+                <option value="">All Matches</option>
+                <option value="approved">Approved Only</option>
+                <option value="rejected">Rejected Only</option>
+                <option value="pending">Pending Review</option>
+            </select>
+        </div>
     </div>
     
-    {% if result.entity.context %}
-    <div class="entity-context">
-        <strong>Context:</strong>
-        {% for key, value in result.entity.context.items() %}
-            {{ key }}: {{ value }}{% if not loop.last %}, {% endif %}
-        {% endfor %}
+    <div class="bulk-actions">
+        <button class="brutalist-btn" onclick="selectAllVisible()">Select All Visible</button>
+        <button class="brutalist-btn" onclick="clearSelections()">Clear Selections</button>
+        <button class="brutalist-btn success" onclick="approveSelected()">Approve Selected</button>
+        <button class="brutalist-btn danger" onclick="rejectSelected()">Reject Selected</button>
     </div>
-    {% endif %}
     
-    {% if result.matches %}
-        {% for match in result.matches[:5] %}
-        <div class="match-card" data-entity-id="{{ result.entity.id }}" data-match-id="{{ match.id }}">
-            <div class="match-header">
-                <div class="match-name">{{ match.name }}</div>
-                <div class="match-score">Score: {{ "%.2f" | format(match.score) }}</div>
-            </div>
-            <div class="match-source">Source: {{ match.source }} | ID: {{ match.id }}</div>
-            {% if match.description %}
-            <div class="match-description">{{ match.description }}</div>
-            {% endif %}
-            
-            {% if match.additional_info %}
-            <div style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">
-                {% for key, value in match.additional_info.items() %}
-                    {% if key not in ['uri', 'scope_note'] and value %}
-                        <span style="margin-right: 1rem;"><strong>{{ key | replace('_', ' ') | title }}:</strong> {{ value }}</span>
-                    {% endif %}
-                {% endfor %}
-            </div>
-            {% endif %}
-            
-            <div class="match-actions">
-                <button class="btn btn-success approve-btn" onclick="approveMatch('{{ result.entity.id }}', '{{ match.id }}', true)">
-                    ✓ Approve
-                </button>
-                <button class="btn btn-danger reject-btn" onclick="approveMatch('{{ result.entity.id }}', '{{ match.id }}', false)">
-                    ✗ Reject
-                </button>
+    <div class="keyboard-shortcuts">
+        Keyboard: A = Approve | R = Reject | ↑↓ = Navigate | Ctrl+A = Select All | Ctrl+B = Batch Approve
+    </div>
+</div>
+
+<!-- Entity Results -->
+<div id="results-container">
+    {% for result in results %}
+    <div class="entity-container" data-entity-id="{{ result.entity.id }}" data-confidence="{{ result.confidence }}">
+        <div class="entity-header">
+            <div class="entity-name">{{ result.entity.name }}</div>
+            <div class="entity-meta">
+                <div class="meta-item">
+                    <span class="meta-label">Type:</span>
+                    <span>{{ result.entity.type | title }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Confidence:</span>
+                    <span class="confidence-badge {{ result.confidence }}">{{ result.confidence | title }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Sources:</span>
+                    <span>{{ result.sources_queried | join(', ') | upper }}</span>
+                </div>
+                {% if result.cached %}
+                <div class="meta-item">
+                    <span class="confidence-badge" style="background: var(--accent-blue); border-color: var(--accent-blue);">CACHED</span>
+                </div>
+                {% endif %}
             </div>
         </div>
-        {% endfor %}
         
-        {% if result.matches | length > 5 %}
-        <div style="text-align: center; color: #666; font-style: italic;">
-            ... and {{ result.matches | length - 5 }} more matches
+        {% if result.entity.context %}
+        <div class="entity-context">
+            <div class="context-label">Context Information:</div>
+            {% for key, value in result.entity.context.items() %}
+                <span style="margin-right: 16px;"><strong>{{ key | replace('_', ' ') | title }}:</strong> {{ value }}</span>
+            {% endfor %}
         </div>
         {% endif %}
-    {% else %}
-        <div class="no-matches">No matches found for this entity</div>
-    {% endif %}
+        
+        <div class="matches-container">
+            {% if result.matches %}
+                {% for match in result.matches[:5] %}
+                <div class="match-item" data-entity-id="{{ result.entity.id }}" data-match-id="{{ match.id }}">
+                    <div class="match-header">
+                        <div>
+                            <div class="match-name">{{ match.name }}</div>
+                            <div class="match-source">{{ match.source | upper }} | ID: {{ match.id }}</div>
+                        </div>
+                        <div class="match-score">{{ "%.3f" | format(match.score) }}</div>
+                    </div>
+                    
+                    {% if match.description %}
+                    <div class="match-description">{{ match.description }}</div>
+                    {% endif %}
+                    
+                    {% if match.additional_info %}
+                    <div class="match-metadata">
+                        <div class="metadata-grid">
+                            {% for key, value in match.additional_info.items() %}
+                                {% if key not in ['uri', 'scope_note'] and value and key != 'search_method' %}
+                                <div class="metadata-item">
+                                    <span class="metadata-label">{{ key | replace('_', ' ') | title }}</span>
+                                    <span class="metadata-value">{{ value }}</span>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="match-actions">
+                        <button class="action-btn view" onclick="viewMatchDetails('{{ match.id }}', '{{ match.source }}')">
+                            View Details
+                        </button>
+                        <button class="action-btn approve" onclick="approveMatch('{{ result.entity.id }}', '{{ match.id }}', true)">
+                            ✓ Approve
+                        </button>
+                        <button class="action-btn reject" onclick="approveMatch('{{ result.entity.id }}', '{{ match.id }}', false)">
+                            ✗ Reject
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                {% if result.matches | length > 5 %}
+                <div class="no-matches">
+                    ... and {{ result.matches | length - 5 }} more matches available
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="no-matches">
+                    No authority matches found for this entity
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
 </div>
-{% endfor %}
 
 <!-- Pagination -->
 {% if pagination.pages > 1 %}
-<div class="pagination">
+<div class="pagination-container">
     {% if pagination.has_prev %}
-        <a href="{{ url_for('review', job_id=job.id, page=pagination.prev_num) }}">&laquo; Previous</a>
+        <a href="{{ url_for('review', job_id=job.id, page=pagination.prev_num) }}" class="pagination-btn">‹ Previous</a>
     {% endif %}
     
-    {% for page_num in range(1, pagination.pages + 1) %}
-        {% if page_num == pagination.page %}
-            <span class="current">{{ page_num }}</span>
-        {% else %}
-            <a href="{{ url_for('review', job_id=job.id, page=page_num) }}">{{ page_num }}</a>
-        {% endif %}
-    {% endfor %}
+    <div class="pagination-info">
+        Page {{ pagination.page }} of {{ pagination.pages }} | {{ pagination.total }} Total Results
+    </div>
     
     {% if pagination.has_next %}
-        <a href="{{ url_for('review', job_id=job.id, page=pagination.next_num) }}">Next &raquo;</a>
+        <a href="{{ url_for('review', job_id=job.id, page=pagination.next_num) }}" class="pagination-btn">Next ›</a>
     {% endif %}
 </div>
 {% endif %}
 
-<div class="card" style="text-align: center; margin-top: 2rem;">
-    <a href="{{ url_for('export_page', job_id=job.id) }}" class="btn btn-primary">Proceed to Export</a>
-    <a href="{{ url_for('processing', job_id=job.id) }}" class="btn btn-secondary">Back to Processing</a>
+<!-- Action Footer -->
+<div class="brutalist-block" style="text-align: center;">
+    <a href="{{ url_for('export_page', job_id=job.id) }}" class="brutalist-btn success">Proceed to Export</a>
+    <a href="{{ url_for('processing', job_id=job.id) }}" class="brutalist-btn secondary">Back to Processing</a>
+    <a href="{{ url_for('jobs_list') }}" class="brutalist-btn secondary">View All Jobs</a>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function approveMatch(entityId, matchId, approved) {
-    const matchCard = document.querySelector(`[data-entity-id="${entityId}"][data-match-id="${matchId}"]`);
-    const approveBtn = matchCard.querySelector('.approve-btn');
-    const rejectBtn = matchCard.querySelector('.reject-btn');
+    let selectedMatches = new Set();
+    let focusedEntityIndex = 0;
+    const entities = document.querySelectorAll('.entity-container');
     
-    // Disable buttons during request
-    approveBtn.disabled = true;
-    rejectBtn.disabled = true;
-    
-    fetch(`/api/job/{{ job.id }}/approve_match`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            entity_id: entityId,
-            match_id: matchId,
-            approved: approved
+    function approveMatch(entityId, matchId, approved) {
+        const matchCard = document.querySelector(`[data-entity-id="${entityId}"][data-match-id="${matchId}"]`);
+        const approveBtn = matchCard.querySelector('.approve');
+        const rejectBtn = matchCard.querySelector('.reject');
+        
+        // Disable buttons during request
+        approveBtn.disabled = true;
+        rejectBtn.disabled = true;
+        showLoading(matchCard);
+        
+        fetch(`/api/job/{{ job.id }}/approve_match`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                entity_id: entityId,
+                match_id: matchId,
+                approved: approved
+            })
         })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Update button states
-            if (approved) {
-                approveBtn.textContent = '✓ Approved';
-                approveBtn.className = 'btn btn-success';
-                rejectBtn.textContent = '✗ Reject';
-                rejectBtn.className = 'btn btn-secondary';
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update visual state
+                if (approved) {
+                    matchCard.classList.add('approved');
+                    matchCard.classList.remove('rejected');
+                    approveBtn.textContent = '✓ Approved';
+                    rejectBtn.textContent = '✗ Reject';
+                } else {
+                    matchCard.classList.add('rejected');
+                    matchCard.classList.remove('approved');
+                    rejectBtn.textContent = '✗ Rejected';
+                    approveBtn.textContent = '✓ Approve';
+                }
+                
+                showSuccessMessage(`Match ${approved ? 'approved' : 'rejected'} successfully`);
             } else {
-                rejectBtn.textContent = '✗ Rejected';
-                rejectBtn.className = 'btn btn-danger';
-                approveBtn.textContent = '✓ Approve';
-                approveBtn.className = 'btn btn-secondary';
+                showErrorMessage('Error updating match: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showErrorMessage('Network error updating match');
+        })
+        .finally(() => {
+            // Re-enable buttons
+            approveBtn.disabled = false;
+            rejectBtn.disabled = false;
+            hideLoading(matchCard);
+        });
+    }
+    
+    function viewMatchDetails(matchId, source) {
+        let url;
+        switch(source.toLowerCase()) {
+            case 'wikidata':
+                url = `https://www.wikidata.org/entity/${matchId}`;
+                break;
+            case 'viaf':
+                url = `https://viaf.org/viaf/${matchId}`;
+                break;
+            case 'getty':
+                url = `http://vocab.getty.edu/page/${matchId}`;
+                break;
+            default:
+                showErrorMessage('Unknown source: ' + source);
+                return;
+        }
+        
+        window.open(url, '_blank');
+    }
+    
+    function batchApproveHighConfidence() {
+        const highConfidenceMatches = document.querySelectorAll('[data-confidence="high"] .match-item .approve');
+        const confirmMsg = `This will approve ${highConfidenceMatches.length} high-confidence matches. Continue?`;
+        
+        if (confirm(confirmMsg)) {
+            let processed = 0;
+            const total = highConfidenceMatches.length;
+            
+            showSuccessMessage(`Starting batch approval of ${total} matches...`);
+            
+            highConfidenceMatches.forEach((btn, index) => {
+                setTimeout(() => {
+                    btn.click();
+                    processed++;
+                    if (processed === total) {
+                        showSuccessMessage(`Batch approval complete: ${total} matches processed`);
+                    }
+                }, index * 200); // Stagger requests
+            });
+        }
+    }
+    
+    function toggleFilterPanel() {
+        const panel = document.getElementById('filter-panel');
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+    
+    function filterEntities() {
+        const searchTerm = document.getElementById('entity-search').value.toLowerCase();
+        const minConfidence = parseFloat(document.getElementById('confidence-filter').value) || 0;
+        const sourceFilter = document.getElementById('source-filter').value;
+        const approvalFilter = document.getElementById('approval-filter').value;
+        
+        let visibleCount = 0;
+        
+        entities.forEach(entity => {
+            const entityName = entity.querySelector('.entity-name').textContent.toLowerCase();
+            const entityConfidence = entity.dataset.confidence;
+            
+            let shouldShow = true;
+            
+            // Text search
+            if (searchTerm && !entityName.includes(searchTerm)) {
+                shouldShow = false;
             }
             
-            // Add visual indicator
-            matchCard.style.borderLeft = approved ? '4px solid #27ae60' : '4px solid #e74c3c';
-        } else {
-            alert('Error updating match: ' + (data.error || 'Unknown error'));
+            // Confidence filter
+            const confidenceScore = getConfidenceScore(entityConfidence);
+            if (confidenceScore < minConfidence) {
+                shouldShow = false;
+            }
+            
+            // Source filter
+            if (sourceFilter) {
+                const sources = entity.querySelector('.entity-meta').textContent.toLowerCase();
+                if (!sources.includes(sourceFilter.toLowerCase())) {
+                    shouldShow = false;
+                }
+            }
+            
+            // Approval filter
+            if (approvalFilter) {
+                const matches = entity.querySelectorAll('.match-item');
+                let hasApprovalStatus = false;
+                
+                matches.forEach(match => {
+                    if (approvalFilter === 'approved' && match.classList.contains('approved')) {
+                        hasApprovalStatus = true;
+                    } else if (approvalFilter === 'rejected' && match.classList.contains('rejected')) {
+                        hasApprovalStatus = true;
+                    } else if (approvalFilter === 'pending' && !match.classList.contains('approved') && !match.classList.contains('rejected')) {
+                        hasApprovalStatus = true;
+                    }
+                });
+                
+                if (!hasApprovalStatus) {
+                    shouldShow = false;
+                }
+            }
+            
+            entity.style.display = shouldShow ? 'block' : 'none';
+            if (shouldShow) visibleCount++;
+        });
+        
+        updateFilterStats(visibleCount);
+    }
+    
+    function getConfidenceScore(confidence) {
+        const scoreMap = {
+            'high': 0.8,
+            'medium': 0.6,
+            'low': 0.3
+        };
+        return scoreMap[confidence] || 0;
+    }
+    
+    function updateFilterStats(visibleCount) {
+        // Update filter stats display
+        const totalEntities = entities.length;
+        console.log(`Showing ${visibleCount} of ${totalEntities} entities`);
+    }
+    
+    function selectAllVisible() {
+        entities.forEach(entity => {
+            if (entity.style.display !== 'none') {
+                entity.classList.add('selected');
+                const entityId = entity.dataset.entityId;
+                selectedMatches.add(entityId);
+            }
+        });
+        updateSelectionDisplay();
+    }
+    
+    function clearSelections() {
+        selectedMatches.clear();
+        entities.forEach(entity => {
+            entity.classList.remove('selected');
+        });
+        updateSelectionDisplay();
+    }
+    
+    function updateSelectionDisplay() {
+        console.log(`${selectedMatches.size} entities selected`);
+    }
+    
+    function approveSelected() {
+        if (selectedMatches.size === 0) {
+            showErrorMessage('No entities selected');
+            return;
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error updating match');
-    })
-    .finally(() => {
-        // Re-enable buttons
-        approveBtn.disabled = false;
-        rejectBtn.disabled = false;
+        
+        const confirmMsg = `Approve best matches for ${selectedMatches.size} selected entities?`;
+        if (confirm(confirmMsg)) {
+            selectedMatches.forEach(entityId => {
+                const entity = document.querySelector(`[data-entity-id="${entityId}"]`);
+                const firstApproveBtn = entity.querySelector('.approve');
+                if (firstApproveBtn) {
+                    firstApproveBtn.click();
+                }
+            });
+            clearSelections();
+        }
+    }
+    
+    function rejectSelected() {
+        if (selectedMatches.size === 0) {
+            showErrorMessage('No entities selected');
+            return;
+        }
+        
+        const confirmMsg = `Reject all matches for ${selectedMatches.size} selected entities?`;
+        if (confirm(confirmMsg)) {
+            selectedMatches.forEach(entityId => {
+                const entity = document.querySelector(`[data-entity-id="${entityId}"]`);
+                const rejectBtns = entity.querySelectorAll('.reject');
+                rejectBtns.forEach(btn => btn.click());
+            });
+            clearSelections();
+        }
+    }
+    
+    function exportCurrentView() {
+        showSuccessMessage('Export functionality would be implemented here');
+    }
+    
+    function showSuccessMessage(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert success';
+        alertDiv.innerHTML = `
+            <div class="alert-title">SUCCESS</div>
+            ${message}
+        `;
+        
+        document.querySelector('.brutalist-container').insertBefore(
+            alertDiv, 
+            document.querySelector('.brutalist-container').children[1]
+        );
+        
+        setTimeout(() => alertDiv.remove(), 3000);
+    }
+    
+    function showErrorMessage(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert error';
+        alertDiv.innerHTML = `
+            <div class="alert-title">ERROR</div>
+            ${message}
+        `;
+        
+        document.querySelector('.brutalist-container').insertBefore(
+            alertDiv, 
+            document.querySelector('.brutalist-container').children[1]
+        );
+        
+        setTimeout(() => alertDiv.remove(), 5000);
+    }
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        
+        switch(e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                focusedEntityIndex = Math.min(focusedEntityIndex + 1, entities.length - 1);
+                scrollToEntity(focusedEntityIndex);
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                focusedEntityIndex = Math.max(focusedEntityIndex - 1, 0);
+                scrollToEntity(focusedEntityIndex);
+                break;
+            case 'a':
+            case 'A':
+                e.preventDefault();
+                const approveBtn = entities[focusedEntityIndex]?.querySelector('.approve');
+                if (approveBtn) approveBtn.click();
+                break;
+            case 'r':
+            case 'R':
+                e.preventDefault();
+                const rejectBtn = entities[focusedEntityIndex]?.querySelector('.reject');
+                if (rejectBtn) rejectBtn.click();
+                break;
+            case 'f':
+            case 'F':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    toggleFilterPanel();
+                }
+                break;
+            case 'b':
+            case 'B':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    batchApproveHighConfidence();
+                }
+                break;
+        }
     });
-}
-function batchApproveHighConfidence() {
-   const highConfidenceMatches = document.querySelectorAll('[data-confidence="high"] .approve-btn');
-   const confirmMsg = `This will approve ${highConfidenceMatches.length} high-confidence matches. Continue?`;
-   
-   if (confirm(confirmMsg)) {
-       let processed = 0;
-       const total = highConfidenceMatches.length;
-       
-       highConfidenceMatches.forEach((btn, index) => {
-           setTimeout(() => {
-               btn.click();
-               processed++;
-               if (processed === total) {
-                   alert(`Batch approval complete: ${total} matches approved`);
-               }
-           }, index * 100); // Stagger requests to avoid overwhelming server
-       });
-   }
-}
+    
+    function scrollToEntity(index) {
+        if (entities[index]) {
+            entities[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Visual focus indicator
+            entities.forEach(e => e.style.outline = 'none');
+            entities[index].style.outline = '2px solid var(--accent-blue)';
+        }
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        // Focus first entity
+        if (entities.length > 0) {
+            scrollToEntity(0);
+        }
+        
+        // Show filter panel by default
+        document.getElementById('filter-panel').style.display = 'block';
+    });
 </script>
 {% endblock %}
