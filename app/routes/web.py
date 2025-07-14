@@ -78,7 +78,7 @@ def register_web_routes(app):
         return render_template('upload.html')
     
     @app.route('/jobs')
-    def jobs_list():
+    def jobs():
         jobs = JobManager.get_all_jobs()
         return render_template('jobs.html', jobs=jobs)
     
@@ -87,8 +87,8 @@ def register_web_routes(app):
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
-            return redirect(url_for('jobs_list'))
-        
+            return redirect(url_for('jobs'))
+
         # Start processing if not already started
         if job['status'] == 'uploaded':
             start_threaded_processing(job_id)
@@ -100,7 +100,7 @@ def register_web_routes(app):
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
-            return redirect(url_for('jobs_list'))
+            return redirect(url_for('jobs'))
         
         # Get paginated results from database
         page = int(request.args.get('page', 1))
@@ -123,12 +123,12 @@ def register_web_routes(app):
         return render_template('review.html', job=job, results=results, pagination=pagination)
     
     @app.route('/export/<job_id>')
-    def export_page(job_id):
+    def export(job_id):
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
-            return redirect(url_for('jobs_list'))
-        
+            return redirect(url_for('jobs'))
+
         return render_template('export.html', job=job)
     
     @app.route('/download/<job_id>/<format>')
@@ -137,15 +137,15 @@ def register_web_routes(app):
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
-            return redirect(url_for('jobs_list'))
+            return redirect(url_for('jobs'))
         
         # Get all results for export (no pagination)
         results, _ = ResultsManager.get_results(job_id, page=1, per_page=10000)
         
         if not results:
             flash('No results found for this job', 'error')
-            return redirect(url_for('export_page', job_id=job_id))
-        
+            return redirect(url_for('export', job_id=job_id))
+
         try:
             if format == 'csv':
                 return download_csv(job, results)
@@ -157,11 +157,11 @@ def register_web_routes(app):
                 return download_report(job, results)
             else:
                 flash(f'Unsupported format: {format}', 'error')
-                return redirect(url_for('export_page', job_id=job_id))
+                return redirect(url_for('export', job_id=job_id))
                 
         except Exception as e:
             flash(f'Export failed: {e}', 'error')
-            return redirect(url_for('export_page', job_id=job_id))
+            return redirect(url_for('export', job_id=job_id))
 
 
 def start_threaded_processing(job_id):

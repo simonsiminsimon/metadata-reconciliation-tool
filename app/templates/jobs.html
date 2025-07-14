@@ -198,7 +198,7 @@
         background: var(--structure-black);
         color: var(--primary-white);
     }
-    
+
     .view-btn.active::before {
         content: '';
         position: absolute;
@@ -872,7 +872,11 @@
                         {% if job.status == 'processing' %}
                         <div class="job-progress">
                             <div class="progress-bar">
-                                <div class="progress-fill" style="width: {{ (job.progress or 0)|float }} %"></div>
+                            <!-- <div class="progress-fill" style="width: {{ (job.progress or 0)|float|round(1) }}%"></div> -->
+                                <div class="progress-fill" id="progress-{{ job.id }}"></div>
+                                    <script>
+                                    document.getElementById('progress-{{ job.id }}').style.width = '{{ (job.progress or 0)|float|round(1) }}%';
+                                    </script>
                             </div>
                             <div class="progress-text">{{ job.progress or 0 }}% Complete</div>
                         </div>

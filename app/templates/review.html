@@ -926,7 +926,7 @@
             <h2 class="field-label">Review Statistics</h2>
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">{{ results | length }}</div>
+                    <div class="stat-value">{{ (results | length) if results else 0 }}</div>
                     <div class="stat-label">Total Entities</div>
                 </div>
                 <div class="stat-card success">
@@ -938,7 +938,7 @@
                     <div class="stat-label">Rejected</div>
                 </div>
                 <div class="stat-card warning">
-                    <div class="stat-value" id="pending-count">{{ results | length }}</div>
+                    <div class="stat-value" id="pending-count">{{ (results | length) if results else 0 }}</div>
                     <div class="stat-label">Pending</div>
                 </div>
             </div>
@@ -1025,6 +1025,7 @@
             
             <!-- Entities List -->
             <div class="entities-list" id="entities-list">
+                {% if results %}
                 {% for result in results %}
                 <div class="entity-card" 
                      data-entity-id="{{ result.entity.id }}" 
@@ -1108,13 +1109,13 @@
                                 
                                 <!-- Match Actions -->
                                 <div class="match-actions">
-                                    <button class="action-btn view" onclick="viewMatchDetails('{{ match.id }}', '{{ match.source }}')">
+                                    <button class="action-btn view" onclick="viewMatchDetails('{{ match.id | e }}', '{{ match.source | e }}')">
                                         VIEW DETAILS
                                     </button>
-                                    <button class="action-btn approve" onclick="approveMatch('{{ result.entity.id }}', '{{ match.id }}', true)">
+                                    <button class="action-btn approve" onclick="approveMatch('{{ result.entity.id | e }}', '{{ match.id | e }}', true)">
                                         ✓ APPROVE
                                     </button>
-                                    <button class="action-btn reject" onclick="approveMatch('{{ result.entity.id }}', '{{ match.id }}', false)">
+                                    <button class="action-btn reject" onclick="approveMatch('{{ result.entity.id | e }}', '{{ match.id | e }}', false)">
                                         ✗ REJECT
                                     </button>
                                 </div>
@@ -1134,27 +1135,38 @@
                     </div>
                 </div>
                 {% endfor %}
+                {% else %}
+                <div class="no-matches">
+                    No entities to review
+                </div>
+                {% endif %}
             </div>
         </div>
         
         <!-- Pagination Block -->
         <div class="brutalist-block pagination-block">
             <div class="pagination-info">
+                {% if pagination and results %}
                 Showing {{ ((pagination.page - 1) * pagination.per_page + 1) if results else 0 }}-{{ pagination.page * pagination.per_page if pagination.page * pagination.per_page < pagination.total else pagination.total }} of {{ pagination.total }} entities
+                {% else %}
+                No pagination information available
+                {% endif %}
             </div>
             <div class="pagination-controls">
-                {% if pagination.has_prev %}
-                    <a href="{{ url_for('review_job', job_id=job.id, page=pagination.prev_num) }}" class="brutalist-btn pagination-btn">‹</a>
-                {% else %}
-                    <button class="brutalist-btn pagination-btn" disabled>‹</button>
-                {% endif %}
-                
-                <span class="pagination-info">Page {{ pagination.page }} of {{ pagination.pages }}</span>
-                
-                {% if pagination.has_next %}
-                    <a href="{{ url_for('review_job', job_id=job.id, page=pagination.next_num) }}" class="brutalist-btn pagination-btn">›</a>
-                {% else %}
-                    <button class="brutalist-btn pagination-btn" disabled>›</button>
+                {% if pagination %}
+                    {% if pagination.has_prev %}
+                        <a href="{{ url_for('review_job', job_id=job.id, page=pagination.prev_num) }}" class="brutalist-btn pagination-btn">‹</a>
+                    {% else %}
+                        <button class="brutalist-btn pagination-btn" disabled>‹</button>
+                    {% endif %}
+                    
+                    <span class="pagination-info">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+                    
+                    {% if pagination.has_next %}
+                        <a href="{{ url_for('review_job', job_id=job.id, page=pagination.next_num) }}" class="brutalist-btn pagination-btn">›</a>
+                    {% else %}
+                        <button class="brutalist-btn pagination-btn" disabled>›</button>
+                    {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -1164,13 +1176,34 @@
 <!-- Status Messages Container -->
 <div id="status-messages"></div>
 
+<!-- Template Data for JavaScript (Properly Escaped) -->
+<script type="application/json" id="template-data">
+{
+    "totalEntities": {{ (results | length) if results else 0 }},
+    "jobId": {{ job.id | tojson }},
+    "csrfToken": "{{ csrf_token() if csrf_token is defined else '' }}"
+}
+</script>
+
 <script>
     class ReviewManager {
         constructor() {
             this.selectedEntities = new Set();
             this.approvedCount = 0;
             this.rejectedCount = 0;
-            this.pendingCount = {{ results | length }};
+            
+            // Get template data safely
+            try {
+                const templateData = JSON.parse(document.getElementById('template-data').textContent);
+                this.pendingCount = templateData.totalEntities || 0;
+                this.jobId = templateData.jobId;
+                this.csrfToken = templateData.csrfToken;
+            } catch (e) {
+                console.warn('Could not parse template data:', e);
+                this.pendingCount = 0;
+                this.jobId = null;
+                this.csrfToken = '';
+            }
             
             this.setupEventListeners();
             this.setupKeyboardShortcuts();
@@ -1202,7 +1235,8 @@
                             break;
                         case 'f':
                             e.preventDefault();
-                            document.getElementById('entity-search').focus();
+                            const searchField = document.getElementById('entity-search');
+                            if (searchField) searchField.focus();
                             break;
                         case 'b':
                             e.preventDefault();
@@ -1222,17 +1256,21 @@
             checkboxes.forEach(cb => {
                 if (cb.checked) {
                     this.selectedEntities.add(cb.value);
-                    cb.closest('.entity-card').classList.add('selected');
+                    const card = cb.closest('.entity-card');
+                    if (card) card.classList.add('selected');
                 } else {
-                    cb.closest('.entity-card').classList.remove('selected');
+                    const card = cb.closest('.entity-card');
+                    if (card) card.classList.remove('selected');
                 }
             });
             
-            selectedCount.textContent = this.selectedEntities.size;
+            if (selectedCount) {
+                selectedCount.textContent = this.selectedEntities.size;
+            }
             
-            if (this.selectedEntities.size > 0) {
+            if (this.selectedEntities.size > 0 && bulkOps) {
                 bulkOps.classList.add('show');
-            } else {
+            } else if (bulkOps) {
                 bulkOps.classList.remove('show');
             }
         }
@@ -1259,22 +1297,31 @@
             const bulkOps = document.getElementById('bulk-operations');
             const toggle = document.getElementById('bulk-toggle');
             
-            bulkOps.classList.toggle('show');
-            toggle.classList.toggle('active');
+            if (bulkOps) bulkOps.classList.toggle('show');
+            if (toggle) toggle.classList.toggle('active');
         }
         
         filterEntities() {
-            const searchTerm = document.getElementById('entity-search').value.toLowerCase();
-            const minConfidence = parseFloat(document.getElementById('confidence-filter').value) || 0;
-            const sourceFilter = document.getElementById('source-filter').value;
-            const approvalFilter = document.getElementById('approval-filter').value;
+            const searchInput = document.getElementById('entity-search');
+            const confidenceFilter = document.getElementById('confidence-filter');
+            const sourceFilter = document.getElementById('source-filter');
+            const approvalFilter = document.getElementById('approval-filter');
+            
+            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+            const minConfidence = confidenceFilter ? parseFloat(confidenceFilter.value) || 0 : 0;
+            const sourceValue = sourceFilter ? sourceFilter.value : '';
+            const approvalValue = approvalFilter ? approvalFilter.value : '';
             
             const entityCards = document.querySelectorAll('.entity-card');
             let visibleCount = 0;
             
             entityCards.forEach(card => {
-                const entityName = card.querySelector('.entity-name').textContent.toLowerCase();
+                const entityNameEl = card.querySelector('.entity-name');
                 const confidenceBadge = card.querySelector('.confidence-badge');
+                
+                if (!entityNameEl) return;
+                
+                const entityName = entityNameEl.textContent.toLowerCase();
                 const confidence = confidenceBadge ? parseFloat(confidenceBadge.textContent) : 0;
                 
                 let shouldShow = true;
@@ -1290,24 +1337,25 @@
                 }
                 
                 // Source filter
-                if (sourceFilter) {
-                    const sources = card.querySelector('.entity-meta').textContent.toLowerCase();
-                    if (!sources.includes(sourceFilter.toLowerCase())) {
+                if (sourceValue) {
+                    const metaEl = card.querySelector('.entity-meta');
+                    const sources = metaEl ? metaEl.textContent.toLowerCase() : '';
+                    if (!sources.includes(sourceValue.toLowerCase())) {
                         shouldShow = false;
                     }
                 }
                 
                 // Approval filter
-                if (approvalFilter) {
+                if (approvalValue) {
                     const matches = card.querySelectorAll('.match-item');
                     let hasApprovalStatus = false;
                     
                     matches.forEach(match => {
-                        if (approvalFilter === 'approved' && match.classList.contains('approved')) {
+                        if (approvalValue === 'approved' && match.classList.contains('approved')) {
                             hasApprovalStatus = true;
-                        } else if (approvalFilter === 'rejected' && match.classList.contains('rejected')) {
+                        } else if (approvalValue === 'rejected' && match.classList.contains('rejected')) {
                             hasApprovalStatus = true;
-                        } else if (approvalFilter === 'pending' && !match.classList.contains('approved') && !match.classList.contains('rejected')) {
+                        } else if (approvalValue === 'pending' && !match.classList.contains('approved') && !match.classList.contains('rejected')) {
                             hasApprovalStatus = true;
                         }
                     });
@@ -1326,24 +1374,33 @@
         
         approveMatch(entityId, matchId, approve) {
             const matchCard = document.querySelector(`[data-match-id="${matchId}"]`);
+            if (!matchCard) return;
+            
             const approveBtn = matchCard.querySelector('.approve');
             const rejectBtn = matchCard.querySelector('.reject');
             
             // Disable buttons during request
-            approveBtn.disabled = true;
-            rejectBtn.disabled = true;
+            if (approveBtn) approveBtn.disabled = true;
+            if (rejectBtn) rejectBtn.disabled = true;
             
             this.showLoading(matchCard);
             
-            fetch(`/api/matches/${matchId}/approve`, {
+            const requestData = {
+                entity_id: entityId,
+                approved: approve
+            };
+            
+            // Add CSRF token if available
+            if (this.csrfToken) {
+                requestData.csrf_token = this.csrfToken;
+            }
+            
+            fetch(`/api/matches/${encodeURIComponent(matchId)}/approve`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    entity_id: entityId,
-                    approved: approve
-                })
+                body: JSON.stringify(requestData)
             })
             .then(response => response.json())
             .then(data => {
@@ -1373,23 +1430,30 @@
             })
             .finally(() => {
                 // Re-enable buttons
-                approveBtn.disabled = false;
-                rejectBtn.disabled = false;
+                if (approveBtn) approveBtn.disabled = false;
+                if (rejectBtn) rejectBtn.disabled = false;
                 this.hideLoading(matchCard);
             });
         }
         
         viewMatchDetails(matchId, source) {
+            if (!matchId || !source) {
+                this.showStatusMessage('Invalid match information', 'error');
+                return;
+            }
+            
             let url;
-            switch(source.toLowerCase()) {
+            const sourceType = source.toLowerCase();
+            
+            switch(sourceType) {
                 case 'wikidata':
-                    url = `https://www.wikidata.org/entity/${matchId}`;
+                    url = `https://www.wikidata.org/entity/${encodeURIComponent(matchId)}`;
                     break;
                 case 'viaf':
-                    url = `https://viaf.org/viaf/${matchId}`;
+                    url = `https://viaf.org/viaf/${encodeURIComponent(matchId)}`;
                     break;
                 case 'getty':
-                    url = `http://vocab.getty.edu/page/${matchId}`;
+                    url = `http://vocab.getty.edu/page/${encodeURIComponent(matchId)}`;
                     break;
                 default:
                     this.showStatusMessage('Unknown source: ' + source, 'error');
@@ -1403,6 +1467,11 @@
             const highConfidenceMatches = document.querySelectorAll('[data-confidence="high"] .match-item .approve');
             const confirmMsg = `This will approve ${highConfidenceMatches.length} high-confidence matches. Continue?`;
             
+            if (highConfidenceMatches.length === 0) {
+                this.showStatusMessage('No high-confidence matches found', 'warning');
+                return;
+            }
+            
             if (confirm(confirmMsg)) {
                 let processed = 0;
                 const total = highConfidenceMatches.length;
@@ -1411,10 +1480,12 @@
                 
                 highConfidenceMatches.forEach((btn, index) => {
                     setTimeout(() => {
-                        btn.click();
-                        processed++;
-                        if (processed === total) {
-                            this.showStatusMessage(`Batch approval complete: ${total} matches processed`, 'success');
+                        if (btn && !btn.disabled) {
+                            btn.click();
+                            processed++;
+                            if (processed === total) {
+                                this.showStatusMessage(`Batch approval complete: ${total} matches processed`, 'success');
+                            }
                         }
                     }, index * 200); // Stagger requests
                 });
@@ -1431,8 +1502,8 @@
             if (confirm(confirmMsg)) {
                 this.selectedEntities.forEach(entityId => {
                     const entity = document.querySelector(`[data-entity-id="${entityId}"]`);
-                    const firstApproveBtn = entity.querySelector('.approve');
-                    if (firstApproveBtn) {
+                    const firstApproveBtn = entity ? entity.querySelector('.approve') : null;
+                    if (firstApproveBtn && !firstApproveBtn.disabled) {
                         firstApproveBtn.click();
                     }
                 });
@@ -1450,8 +1521,12 @@
             if (confirm(confirmMsg)) {
                 this.selectedEntities.forEach(entityId => {
                     const entity = document.querySelector(`[data-entity-id="${entityId}"]`);
-                    const rejectBtns = entity.querySelectorAll('.reject');
-                    rejectBtns.forEach(btn => btn.click());
+                    if (entity) {
+                        const rejectBtns = entity.querySelectorAll('.reject');
+                        rejectBtns.forEach(btn => {
+                            if (!btn.disabled) btn.click();
+                        });
+                    }
                 });
                 this.clearSelections();
             }
@@ -1462,23 +1537,32 @@
         }
         
         updateStats() {
-            document.getElementById('approved-count').textContent = this.approvedCount;
-            document.getElementById('rejected-count').textContent = this.rejectedCount;
-            document.getElementById('pending-count').textContent = this.pendingCount;
+            const approvedEl = document.getElementById('approved-count');
+            const rejectedEl = document.getElementById('rejected-count');
+            const pendingEl = document.getElementById('pending-count');
+            
+            if (approvedEl) approvedEl.textContent = this.approvedCount;
+            if (rejectedEl) rejectedEl.textContent = this.rejectedCount;
+            if (pendingEl) pendingEl.textContent = this.pendingCount;
         }
         
         showLoading(element) {
-            element.style.opacity = '0.6';
-            element.style.pointerEvents = 'none';
+            if (element) {
+                element.style.opacity = '0.6';
+                element.style.pointerEvents = 'none';
+            }
         }
         
         hideLoading(element) {
-            element.style.opacity = '1';
-            element.style.pointerEvents = 'auto';
+            if (element) {
+                element.style.opacity = '1';
+                element.style.pointerEvents = 'auto';
+            }
         }
         
         showStatusMessage(message, type = 'success') {
             const container = document.getElementById('status-messages');
+            if (!container) return;
             
             const messageDiv = document.createElement('div');
             messageDiv.className = `status-message ${type}`;
@@ -1492,7 +1576,11 @@
             // Hide and remove message
             setTimeout(() => {
                 messageDiv.classList.remove('show');
-                setTimeout(() => container.removeChild(messageDiv), 300);
+                setTimeout(() => {
+                    if (container.contains(messageDiv)) {
+                        container.removeChild(messageDiv);
+                    }
+                }, 300);
             }, 3000);
         }
     }
@@ -1504,16 +1592,38 @@
     });
     
     // Global functions for template compatibility
-    function updateSelection() { reviewManager.updateSelection(); }
-    function selectAllEntities() { reviewManager.selectAllEntities(); }
-    function clearSelections() { reviewManager.clearSelections(); }
-    function toggleBulkOperations() { reviewManager.toggleBulkOperations(); }
-    function filterEntities() { reviewManager.filterEntities(); }
-    function approveMatch(entityId, matchId, approve) { reviewManager.approveMatch(entityId, matchId, approve); }
-    function viewMatchDetails(matchId, source) { reviewManager.viewMatchDetails(matchId, source); }
-    function batchApproveHighConfidence() { reviewManager.batchApproveHighConfidence(); }
-    function approveSelected() { reviewManager.approveSelected(); }
-    function rejectSelected() { reviewManager.rejectSelected(); }
-    function exportCurrentView() { reviewManager.exportCurrentView(); }
+    function updateSelection() { 
+        if (reviewManager) reviewManager.updateSelection(); 
+    }
+    function selectAllEntities() { 
+        if (reviewManager) reviewManager.selectAllEntities(); 
+    }
+    function clearSelections() { 
+        if (reviewManager) reviewManager.clearSelections(); 
+    }
+    function toggleBulkOperations() { 
+        if (reviewManager) reviewManager.toggleBulkOperations(); 
+    }
+    function filterEntities() { 
+        if (reviewManager) reviewManager.filterEntities(); 
+    }
+    function approveMatch(entityId, matchId, approve) { 
+        if (reviewManager) reviewManager.approveMatch(entityId, matchId, approve); 
+    }
+    function viewMatchDetails(matchId, source) { 
+        if (reviewManager) reviewManager.viewMatchDetails(matchId, source); 
+    }
+    function batchApproveHighConfidence() { 
+        if (reviewManager) reviewManager.batchApproveHighConfidence(); 
+    }
+    function approveSelected() { 
+        if (reviewManager) reviewManager.approveSelected(); 
+    }
+    function rejectSelected() { 
+        if (reviewManager) reviewManager.rejectSelected(); 
+    }
+    function exportCurrentView() { 
+        if (reviewManager) reviewManager.exportCurrentView(); 
+    }
 </script>
 {% endblock %}
