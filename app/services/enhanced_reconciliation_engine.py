@@ -4,10 +4,12 @@ Updated Reconciliation Engine using the new Cultural Heritage Wikidata Client
 
 This integrates the enhanced Wikidata client with your existing reconciliation system
 while maintaining compatibility with the current database structure and API.
+
+FIXED: InvalidTypeForm errors in type annotations
 """
 
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import pandas as pd
 from datetime import datetime
 
@@ -71,36 +73,28 @@ class EnhancedReconciliationEngine:
             EntityType.SUBJECT: WikidataEntityType.SUBJECT_TOPIC,
             EntityType.AUTHOR: WikidataEntityType.PERSON,
             EntityType.ARTWORK: WikidataEntityType.ARTWORK,
-            EntityType.UNKNOWN: WikidataEntityType.CONCEPT
+            EntityType.UNKNOWN: WikidataEntityType.PERSON  # Default fallback
         }
-        return mapping.get(entity_type, WikidataEntityType.CONCEPT)
+        return mapping.get(entity_type, WikidataEntityType.PERSON)
     
-    def _convert_wikidata_match_to_match_result(self, wikidata_match: WikidataMatch) -> MatchResult:
-        """Convert WikidataMatch to the existing MatchResult format"""
-        
+    def _convert_wikidata_match_to_result(self, wikidata_match: WikidataMatch) -> MatchResult:
+        """Convert WikidataMatch to MatchResult for compatibility"""
         # Convert confidence level
-        confidence_mapping = {
-            ConfidenceLevel.VERY_HIGH: OldConfidenceLevel.HIGH,
-            ConfidenceLevel.HIGH: OldConfidenceLevel.HIGH,
-            ConfidenceLevel.MEDIUM: OldConfidenceLevel.MEDIUM,
-            ConfidenceLevel.LOW: OldConfidenceLevel.LOW,
-            ConfidenceLevel.VERY_LOW: OldConfidenceLevel.LOW
-        }
+        if wikidata_match.confidence_level == ConfidenceLevel.VERY_HIGH:
+            old_confidence = OldConfidenceLevel.HIGH
+        elif wikidata_match.confidence_level == ConfidenceLevel.HIGH:
+            old_confidence = OldConfidenceLevel.HIGH
+        elif wikidata_match.confidence_level == ConfidenceLevel.MEDIUM:
+            old_confidence = OldConfidenceLevel.MEDIUM
+        else:
+            old_confidence = OldConfidenceLevel.LOW
         
-        confidence = confidence_mapping.get(
-            wikidata_match.confidence_level, 
-            OldConfidenceLevel.LOW
-        )
-        
-        # Build additional info with cultural heritage specific fields
-        additional_info = {
-            'wikidata_url': f"https://www.wikidata.org/entity/{wikidata_match.wikidata_id}",
-            'entity_type': wikidata_match.entity_type.value,
-            'aliases': wikidata_match.aliases,
-            'confidence_score': wikidata_match.confidence_score
-        }
-        
-        # Add optional fields if available
+        # Build additional_info with cultural heritage specific data
+        additional_info = {}
+        if wikidata_match.viaf_id:
+            additional_info['viaf_id'] = wikidata_match.viaf_id
+        if wikidata_match.library_of_congress_id:
+            additional_info['lc_id'] = wikidata_match.library_of_congress_id
         if wikidata_match.birth_date:
             additional_info['birth_date'] = wikidata_match.birth_date
         if wikidata_match.death_date:
@@ -109,57 +103,46 @@ class EnhancedReconciliationEngine:
             additional_info['coordinates'] = wikidata_match.coordinates
         if wikidata_match.country:
             additional_info['country'] = wikidata_match.country
-        if wikidata_match.inception_date:
-            additional_info['inception_date'] = wikidata_match.inception_date
         if wikidata_match.website:
             additional_info['website'] = wikidata_match.website
-        if wikidata_match.viaf_id:
-            additional_info['viaf_id'] = wikidata_match.viaf_id
-            additional_info['viaf_url'] = f"https://viaf.org/viaf/{wikidata_match.viaf_id}"
-        if wikidata_match.library_of_congress_id:
-            additional_info['lc_id'] = wikidata_match.library_of_congress_id
-            additional_info['lc_url'] = f"https://id.loc.gov/authorities/names/{wikidata_match.library_of_congress_id}"
         if wikidata_match.image_url:
             additional_info['image_url'] = wikidata_match.image_url
-        if wikidata_match.commons_category:
-            additional_info['commons_category'] = wikidata_match.commons_category
-        
-        # Add external IDs
         if wikidata_match.external_ids:
             additional_info.update(wikidata_match.external_ids)
         
         return MatchResult(
             id=wikidata_match.wikidata_id,
             name=wikidata_match.label,
-            description=wikidata_match.description,
-            confidence=confidence,
+            description=wikidata_match.description or "",
+            confidence=old_confidence,
             score=wikidata_match.confidence_score,
-            source='wikidata_enhanced',
+            source="wikidata_enhanced",
             additional_info=additional_info
         )
     
-    def _extract_context_hints(self, entity: Entity) -> Dict[str, str]:
+    def _extract_context_hints(self, entity: Entity) -> Dict[str, Any]:
         """Extract context hints from entity for better matching"""
         context_hints = {}
         
-        # Extract useful context from the entity
-        if entity.context:
-            # Look for date information
-            for key, value in entity.context.items():
-                if isinstance(value, str):
-                    key_lower = key.lower()
-                    
-                    # Date fields
-                    if any(date_word in key_lower for date_word in ['date', 'year', 'birth', 'death', 'created']):
-                        context_hints['date'] = str(value)
-                    
-                    # Location fields
-                    elif any(loc_word in key_lower for loc_word in ['location', 'place', 'city', 'state', 'country']):
-                        context_hints['location'] = str(value)
-                    
-                    # Type/occupation fields
-                    elif any(type_word in key_lower for type_word in ['type', 'occupation', 'role', 'profession']):
-                        context_hints['occupation'] = str(value)
+        # Date context
+        for date_field in ['date_created', 'date', 'year', 'birth_date', 'death_date']:
+            if date_field in entity.context:
+                context_hints['date'] = entity.context[date_field]
+                break
+        
+        # Location context
+        for location_field in ['location', 'place', 'city', 'state', 'country']:
+            if location_field in entity.context:
+                context_hints['location'] = entity.context[location_field]
+                break
+        
+        # Type-specific context
+        if entity.entity_type == EntityType.PERSON:
+            # Look for birth/death information
+            if 'birth_year' in entity.context:
+                context_hints['birth_year'] = entity.context['birth_year']
+            if 'death_year' in entity.context:
+                context_hints['death_year'] = entity.context['death_year']
         
         return context_hints
     
@@ -215,19 +198,49 @@ class EnhancedReconciliationEngine:
             traceback.print_exc()
             wikidata_matches = []
         
-        def _calculate_overall_confidence(self, matches: List[MatchResult]) -> OldConfidenceLevel:
-            """Calculate overall confidence based on matches"""
-            if not matches:
-                return OldConfidenceLevel.LOW
-            
-            best_match = matches[0]
-            
-            if best_match.score >= 0.8:
-                return OldConfidenceLevel.HIGH
-            elif best_match.score >= 0.6:
-                return OldConfidenceLevel.MEDIUM
-            else:
-                return OldConfidenceLevel.LOW
+        # Convert Wikidata matches to MatchResult objects
+        matches = [self._convert_wikidata_match_to_result(match) for match in wikidata_matches]
+        
+        # Determine best match and overall confidence
+        best_match = matches[0] if matches else None
+        confidence = self._calculate_overall_confidence(matches)
+        
+        # Create result
+        result = ReconciliationResult(
+            entity=entity,
+            matches=matches,
+            best_match=best_match,
+            confidence=confidence,
+            reconciliation_time=time.time() - start_time,
+            sources_queried=["wikidata_enhanced"],
+            cached=False
+        )
+        
+        # Cache the result
+        self.cache.put(entity.search_key, result)
+        
+        # Update statistics
+        self._stats['total_processed'] += 1
+        if matches:
+            self._stats['wikidata_matches'] += 1
+        if confidence == OldConfidenceLevel.HIGH:
+            self._stats['high_confidence_matches'] += 1
+        
+        return result
+    
+    def _calculate_overall_confidence(self, matches: List[MatchResult]) -> OldConfidenceLevel:
+        """Calculate overall confidence based on matches"""
+        if not matches:
+            return OldConfidenceLevel.LOW
+        
+        best_match = matches[0]
+        
+        if best_match.score >= 0.8:
+            return OldConfidenceLevel.HIGH
+        elif best_match.score >= 0.6:
+            return OldConfidenceLevel.MEDIUM
+        else:
+            return OldConfidenceLevel.LOW
     
     def process_entities(self, entities: List[Entity]) -> List[ReconciliationResult]:
         """Process a list of entities (main interface method)"""
@@ -239,9 +252,12 @@ class EnhancedReconciliationEngine:
         
         return results
     
-    def create_entities_from_dataframe(self, df: pd.DataFrame, entity_column: str,
-                                     type_column: str = None, 
-                                     context_columns: List[str] = None) -> List[Entity]:
+    # FIXED: Proper type annotation using pd.DataFrame instead of pd
+    def create_entities_from_dataframe(self, 
+                                     df: pd.DataFrame, 
+                                     entity_column: str,
+                                     type_column: Optional[str] = None, 
+                                     context_columns: Optional[List[str]] = None) -> List[Entity]:
         """Create entities from DataFrame (compatible with existing interface)"""
         entities = []
         context_columns = context_columns or []
@@ -274,6 +290,7 @@ class EnhancedReconciliationEngine:
         
         return entities
     
+    # FIXED: Proper return type annotation
     def _parse_entity_type(self, type_str: str) -> EntityType:
         """Parse entity type from string"""
         type_str = type_str.lower().strip()
@@ -296,6 +313,7 @@ class EnhancedReconciliationEngine:
         
         return type_mapping.get(type_str, EntityType.UNKNOWN)
     
+    # FIXED: Proper return type annotation  
     def _infer_entity_type(self, entity_name: str) -> EntityType:
         """Infer entity type from name patterns"""
         name_lower = entity_name.lower()
@@ -343,6 +361,23 @@ class EnhancedReconciliationEngine:
         # Default to organization for unmatched patterns
         print(f"  ❓ Could not determine type for '{entity_name}', defaulting to ORGANIZATION")
         return EntityType.ORGANIZATION
+    
+    # FIXED: Proper return type annotation
+    def get_statistics(self) -> Dict[str, Union[int, float]]:
+        """Get processing statistics"""
+        stats = self._stats.copy()
+        
+        # Calculate derived statistics
+        if stats['total_processed'] > 0:
+            stats['cache_hit_rate'] = stats['cache_hits'] / stats['total_processed']
+            stats['match_rate'] = stats['wikidata_matches'] / stats['total_processed']
+            stats['high_confidence_rate'] = stats['high_confidence_matches'] / stats['total_processed']
+        else:
+            stats['cache_hit_rate'] = 0.0
+            stats['match_rate'] = 0.0
+            stats['high_confidence_rate'] = 0.0
+        
+        return stats
 
 
 # Example usage showing how to integrate with existing system
@@ -364,11 +399,12 @@ def demo_integration():
             'Minnesota Territorial Legislature',
             'Bijou Opera House', 
             'Hodge, Emma B.',
+            'Carleton College',
             'Carleton College. Registrar\'s Office'
         ],
-        'entity_type': ['organization', 'organization', 'person', 'organization'],
-        'date_created': ['1857', '1898-01-02', '1921', '1867-1868'],
-        'location': ['Minnesota', 'Minneapolis, Minnesota', 'Chicago', 'Northfield, Minnesota']
+        'entity_type': ['organization', 'organization', 'person', 'organization', 'organization'],
+        'date_created': ['1857', '1898-01-02', '1921', '1867-1868', '1920'],
+        'location': ['Minnesota', 'Minneapolis, Minnesota', 'Chicago', 'Northfield, Minnesota', 'Northfield, Minnesota']
     })
     
     print("Creating entities from sample data...")

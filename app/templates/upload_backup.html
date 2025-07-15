@@ -1,0 +1,587 @@
+{% extends "base.html" %}
+
+{% block title %}Metadata Reconciliation - Upload{% endblock %}
+
+{% block content %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    :root {
+        /* Brutalist Color Palette - 4 colors max */
+        --primary-white: #FAFAFA;
+        --structure-black: #1A1A1A;
+        --accent-blue: #0066FF;
+        --system-gray: #808080;
+        
+        /* Grid System */
+        --grid-gap: 16px;
+        --border-width: 2px;
+        --border-radius: 0px;
+        
+        /* Typography */
+        --font-mono: 'JetBrains Mono', monospace;
+        --font-sans: 'Inter', sans-serif;
+    }
+    
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-family: var(--font-sans);
+        background: var(--primary-white);
+        color: var(--structure-black);
+        line-height: 1.4;
+        min-height: 100vh;
+    }
+    
+    /* Hide base template styling */
+    .card {
+        display: none;
+    }
+    
+    /* Brutalist Container */
+    .brutalist-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: var(--grid-gap);
+        min-height: 100vh;
+    }
+    
+    /* Bento Grid System */
+    .bento-grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        grid-template-rows: auto;
+        gap: var(--grid-gap);
+        grid-template-areas:
+            "header header header header header header header header header status status status"
+            "upload upload upload upload upload upload config config config config config config"
+            "features features features features features features features features features features features features"
+            "controls controls controls controls controls controls controls controls controls controls controls controls";
+    }
+    
+    /* Brutalist Block Base */
+    .brutalist-block {
+        background: var(--primary-white);
+        border: var(--border-width) solid var(--structure-black);
+        padding: 24px;
+        position: relative;
+        transition: none;
+    }
+    
+    .brutalist-block::before {
+        content: '';
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        right: -4px;
+        bottom: -4px;
+        background: var(--structure-black);
+        z-index: -1;
+    }
+    
+    /* Header Block */
+    .header-block {
+        grid-area: header;
+    }
+    
+    .system-title {
+        font-family: var(--font-mono);
+        font-size: clamp(18px, 3vw, 24px);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+    }
+    
+    .system-subtitle {
+        font-size: 14px;
+        color: var(--system-gray);
+        line-height: 1.4;
+    }
+    
+    /* Status Block */
+    .status-block {
+        grid-area: status;
+        background: var(--primary-white);
+    }
+    
+    .status-indicator {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    
+    .status-details {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--system-gray);
+        line-height: 1.4;
+    }
+    
+    /* Upload Block */
+    .upload-block {
+        grid-area: upload;
+    }
+    
+    .upload-title {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 16px;
+    }
+    
+    .upload-zone {
+        border: var(--border-width) dashed var(--system-gray);
+        padding: 48px 24px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: rgba(128, 128, 128, 0.02);
+    }
+    
+    .upload-zone:hover {
+        border-color: var(--accent-blue);
+        background: rgba(0, 102, 255, 0.02);
+    }
+    
+    .upload-zone.active {
+        border-color: var(--accent-blue);
+        background: rgba(0, 102, 255, 0.05);
+    }
+    
+    .upload-icon {
+        font-family: var(--font-mono);
+        font-size: 32px;
+        display: block;
+        margin-bottom: 8px;
+    }
+    
+    .upload-text {
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+    
+    .upload-hint {
+        font-size: 11px;
+        color: var(--system-gray);
+    }
+    
+    /* Configuration Block */
+    .config-block {
+        grid-area: config;
+    }
+    
+    .config-title {
+        font-family: var(--font-mono);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 16px;
+    }
+    
+    .config-section {
+        margin-bottom: 16px;
+    }
+    
+    .config-section:last-child {
+        margin-bottom: 0;
+    }
+    
+    .field-label {
+        font-size: 12px;
+        font-weight: 500;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--structure-black);
+    }
+    
+    .field-input, .field-select {
+        width: 100%;
+        padding: 12px;
+        border: var(--border-width) solid var(--structure-black);
+        background: var(--primary-white);
+        font-family: var(--font-sans);
+        font-size: 14px;
+        font-weight: 400;
+    }
+    
+    .field-input:focus, .field-select:focus {
+        outline: none;
+        border-color: var(--accent-blue);
+    }
+    
+    .field-help {
+        font-size: 11px;
+        color: var(--system-gray);
+        margin-top: 4px;
+        font-family: var(--font-mono);
+    }
+    
+    /* Features Block */
+    .features-block {
+        grid-area: features;
+    }
+    
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: var(--grid-gap);
+    }
+    
+    .feature-item {
+        padding: 16px;
+        border: 1px solid var(--system-gray);
+        text-align: center;
+    }
+    
+    .feature-icon {
+        font-family: var(--font-mono);
+        font-size: 24px;
+        margin-bottom: 8px;
+        display: block;
+    }
+    
+    .feature-name {
+        font-size: 12px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+    
+    .feature-desc {
+        font-size: 10px;
+        color: var(--system-gray);
+        line-height: 1.3;
+    }
+    
+    /* Controls Block */
+    .controls-block {
+        grid-area: controls;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: var(--grid-gap);
+    }
+    
+    .control-group {
+        display: flex;
+        gap: var(--grid-gap);
+        align-items: center;
+    }
+    
+    /* Brutalist Buttons */
+    .brutalist-btn {
+        background: var(--structure-black);
+        color: var(--primary-white);
+        border: none;
+        padding: 16px 24px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        position: relative;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .brutalist-btn::before {
+        content: '';
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        right: -4px;
+        bottom: -4px;
+        background: var(--accent-blue);
+        z-index: -1;
+        transition: all 0.1s ease;
+    }
+    
+    .brutalist-btn:hover::before {
+        top: 2px;
+        left: 2px;
+        right: -2px;
+        bottom: -2px;
+    }
+    
+    .brutalist-btn:active {
+        transform: translate(2px, 2px);
+    }
+    
+    .brutalist-btn:active::before {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+    
+    .brutalist-btn.secondary {
+        background: var(--primary-white);
+        color: var(--structure-black);
+        border: var(--border-width) solid var(--structure-black);
+    }
+    
+    .brutalist-btn.secondary::before {
+        background: var(--system-gray);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .bento-grid {
+            grid-template-columns: 1fr;
+            grid-template-areas:
+                "header"
+                "status"
+                "upload"
+                "config"
+                "features"
+                "controls";
+        }
+        
+        .features-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .controls-block {
+            flex-direction: column;
+        }
+    }
+</style>
+
+<div class="brutalist-container">
+    <!-- IMPORTANT: This form now wraps ALL inputs -->
+    <form method="POST" enctype="multipart/form-data" id="upload-form">
+        <!-- Main Bento Grid -->
+        <div class="bento-grid" id="main-grid">
+            <!-- Header Block -->
+            <div class="brutalist-block header-block">
+                <h1 class="system-title">Metadata Reconciliation System</h1>
+                <p class="system-subtitle">Entity linking and authority control processing interface</p>
+            </div>
+            
+            <!-- Status Block -->
+            <div class="brutalist-block status-block">
+                <div class="status-indicator">System Status</div>
+                <div class="status-details">
+                    SPARQL_ENDPOINT: ACTIVE<br>
+                    WIKIDATA_API: READY<br>
+                    PROCESSING_QUEUE: <span id="queue-count">0</span>
+                </div>
+            </div>
+            
+            <!-- Upload Block -->
+            <div class="brutalist-block upload-block">
+                <h2 class="upload-title">Data Input</h2>
+                <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+                    <span class="upload-icon">▦</span>
+                    <div class="upload-text">Select metadata file</div>
+                    <div class="upload-hint">CSV, XLSX • MAX 50MB</div>
+                    <input type="file" id="file-input" name="file" accept=".csv,.xlsx,.xls" style="display: none;" required>
+                </div>
+            </div>
+            
+            <!-- Configuration Block -->
+            <div class="brutalist-block config-block">
+                <h2 class="config-title">Processing Parameters</h2>
+                
+                <div class="config-section">
+                    <label class="field-label" for="entity_column">Entity Column [REQUIRED]</label>
+                    <input type="text" id="entity_column" name="entity_column" class="field-input" 
+                           placeholder="creator_name" required>
+                    <div class="field-help">COLUMN_CONTAINING_NAMES_TO_RECONCILE → PERSONS/ORGS/PLACES</div>
+                </div>
+                
+                <div class="config-section">
+                    <label class="field-label" for="type_column">Type Column [OPTIONAL]</label>
+                    <input type="text" id="type_column" name="type_column" class="field-input" 
+                           placeholder="entity_type">
+                    <div class="field-help">ENTITY_CLASSIFICATION_COLUMN → IMPROVES_MATCHING_ACCURACY</div>
+                </div>
+                
+                <div class="config-section">
+                    <label class="field-label" for="context_columns">Context Columns [OPTIONAL]</label>
+                    <input type="text" id="context_columns" name="context_columns" class="field-input" 
+                           placeholder="date_created,location,nationality">
+                    <div class="field-help">COMMA_SEPARATED_CONTEXT_FIELDS → DATES/PLACES/ROLES_FOR_DISAMBIGUATION</div>
+                </div>
+                
+                <div class="config-section">
+                    <label class="field-label" for="confidence_threshold">Confidence Threshold [DEFAULT]</label>
+                    <select id="confidence_threshold" name="confidence_threshold" class="field-select">
+                        <option value="0.8">HIGH_PRECISION (0.8)</option>
+                        <option value="0.6" selected>BALANCED (0.6)</option>
+                        <option value="0.4">BROAD_MATCH (0.4)</option>
+                    </select>
+                    <div class="field-help">MINIMUM_MATCH_CONFIDENCE → HIGHER_VALUES_REDUCE_FALSE_POSITIVES</div>
+                </div>
+                
+                <div class="config-section">
+                    <label class="field-label" for="data_sources">Authority Sources [DEFAULT]</label>
+                    <select id="data_sources" name="data_sources" class="field-select" multiple>
+                        <option value="wikidata" selected>WIKIDATA</option>
+                        <option value="viaf" selected>VIAF</option>
+                        <option value="getty">GETTY</option>
+                        <option value="loc">LOC</option>
+                    </select>
+                    <div class="field-help">EXTERNAL_DATABASES_TO_QUERY → CTRL+CLICK_MULTI_SELECT</div>
+                </div>
+            </div>
+            
+            <!-- Features Block -->
+            <div class="brutalist-block features-block">
+                <h2 class="config-title">System Capabilities</h2>
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <span class="feature-icon">▣</span>
+                        <div class="feature-name">Entity Extraction</div>
+                        <div class="feature-desc">Automated identification and classification</div>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">▤</span>
+                        <div class="feature-name">Authority Linking</div>
+                        <div class="feature-desc">Cross-reference with external databases</div>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">▥</span>
+                        <div class="feature-name">Confidence Scoring</div>
+                        <div class="feature-desc">Statistical matching assessment</div>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">▦</span>
+                        <div class="feature-name">Batch Processing</div>
+                        <div class="feature-desc">Scalable dataset reconciliation</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Controls Block -->
+            <div class="brutalist-block controls-block">
+                <div class="control-group">
+                    <button type="submit" class="brutalist-btn">Execute Process</button>
+                    <button type="button" class="brutalist-btn secondary" onclick="resetForm()">Reset Parameters</button>
+                </div>
+                <div class="control-group">
+                    <span style="font-family: var(--font-mono); font-size: 10px; color: var(--system-gray);">
+                        LAST_MODIFIED: <span id="timestamp">--:--:--</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    // File upload handling
+    document.getElementById('file-input').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const uploadZone = document.querySelector('.upload-zone');
+        
+        if (file) {
+            uploadZone.classList.add('active');
+            uploadZone.innerHTML = `
+                <span class="upload-icon">▣</span>
+                <div class="upload-text">FILE_LOADED: ${file.name}</div>
+                <div class="upload-hint">SIZE: ${(file.size / 1024 / 1024).toFixed(2)}MB</div>
+            `;
+            
+            // Preview CSV columns
+            previewColumns(file);
+        }
+    });
+    
+    // Preview CSV columns to help user select the right column
+    function previewColumns(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            const firstLine = text.split('\n')[0];
+            const columns = firstLine.split(',').map(col => col.trim());
+            
+            // Update field placeholders with actual column names
+            if (columns.length > 0) {
+                document.getElementById('entity_column').placeholder = `e.g., ${columns[0]}`;
+                if (columns.length > 1) {
+                    document.getElementById('type_column').placeholder = `e.g., ${columns[1]}`;
+                }
+            }
+        };
+        reader.readAsText(file.slice(0, 1024)); // Read first 1KB only
+    }
+    
+    // Form validation
+    document.getElementById('upload-form').addEventListener('submit', function(e) {
+        const fileInput = document.getElementById('file-input');
+        const entityColumn = document.getElementById('entity_column').value;
+        
+        if (!fileInput.files[0]) {
+            e.preventDefault();
+            alert('ERROR: NO_FILE_SELECTED\n\nPlease select a CSV file to upload.');
+            return;
+        }
+        
+        if (!entityColumn.trim()) {
+            e.preventDefault();
+            alert('ERROR: ENTITY_COLUMN_REQUIRED\n\nPlease specify which column contains the entities to reconcile.');
+            return;
+        }
+        
+        // Show processing indicator
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.textContent = 'PROCESSING...';
+        submitBtn.disabled = true;
+    });
+    
+    // Reset form
+    function resetForm() {
+        document.getElementById('upload-form').reset();
+        const uploadZone = document.querySelector('.upload-zone');
+        uploadZone.classList.remove('active');
+        uploadZone.innerHTML = `
+            <span class="upload-icon">▦</span>
+            <div class="upload-text">Select metadata file</div>
+            <div class="upload-hint">CSV, XLSX • MAX 50MB</div>
+        `;
+    }
+    
+    // Update timestamp
+    function updateTimestamp() {
+        const now = new Date();
+        const timestamp = now.toLocaleTimeString('en-US', { hour12: false });
+        document.getElementById('timestamp').textContent = timestamp;
+    }
+    
+    updateTimestamp();
+    setInterval(updateTimestamp, 1000);
+    
+    // Check system status periodically
+    function checkSystemStatus() {
+        fetch('/api/system_status')
+            .then(response => response.json())
+            .then(data => {
+                // Update queue count if available
+                if (data.queue_count !== undefined) {
+                    document.getElementById('queue-count').textContent = data.queue_count;
+                }
+            })
+            .catch(error => console.error('Status check failed:', error));
+    }
+    
+    // Check status every 30 seconds
+    setInterval(checkSystemStatus, 30000);
+</script>
+{% endblock %}

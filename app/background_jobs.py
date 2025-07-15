@@ -18,7 +18,7 @@ from datetime import datetime
 
 # Import our components
 from app.services.metadata_parser import MetadataParser
-from app.services.reconciliation_engine import ReconciliationEngine
+from app.services.enhanced_reconciliation_engine import EnhancedReconciliationEngine
 from app.database import JobManager, ResultsManager
 
 # Configure Celery
@@ -105,7 +105,7 @@ def process_reconciliation_job(self, job_id):
         
         # Step 3: Initialize reconciliation engine
         update_progress(25, "Initializing reconciliation engine...")
-        engine = ReconciliationEngine()
+        engine = EnhancedReconciliationEngine()
         
         # Step 4: Create entities
         update_progress(35, "Extracting entities from CSV...")
@@ -386,7 +386,7 @@ def process_reconciliation_job(self, job_id):
         
         # Step 3: Initialize reconciliation engine
         update_progress(25, "Initializing reconciliation engine...")
-        engine = ReconciliationEngine()
+        engine = EnhancedReconciliationEngine()
         
         # Step 4: Create entities
         update_progress(35, "Extracting entities from CSV...")

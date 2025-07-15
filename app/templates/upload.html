@@ -1,587 +1,701 @@
-{% extends "base.html" %}
-
-{% block title %}Metadata Reconciliation - Upload{% endblock %}
-
-{% block content %}
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    :root {
-        /* Brutalist Color Palette - 4 colors max */
-        --primary-white: #FAFAFA;
-        --structure-black: #1A1A1A;
-        --accent-blue: #0066FF;
-        --system-gray: #808080;
-        
-        /* Grid System */
-        --grid-gap: 16px;
-        --border-width: 2px;
-        --border-radius: 0px;
-        
-        /* Typography */
-        --font-mono: 'JetBrains Mono', monospace;
-        --font-sans: 'Inter', sans-serif;
-    }
-    
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-    
-    body {
-        font-family: var(--font-sans);
-        background: var(--primary-white);
-        color: var(--structure-black);
-        line-height: 1.4;
-        min-height: 100vh;
-    }
-    
-    /* Hide base template styling */
-    .card {
-        display: none;
-    }
-    
-    /* Brutalist Container */
-    .brutalist-container {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: var(--grid-gap);
-        min-height: 100vh;
-    }
-    
-    /* Bento Grid System */
-    .bento-grid {
-        display: grid;
-        grid-template-columns: repeat(12, 1fr);
-        grid-template-rows: auto;
-        gap: var(--grid-gap);
-        grid-template-areas:
-            "header header header header header header header header header status status status"
-            "upload upload upload upload upload upload config config config config config config"
-            "features features features features features features features features features features features features"
-            "controls controls controls controls controls controls controls controls controls controls controls controls";
-    }
-    
-    /* Brutalist Block Base */
-    .brutalist-block {
-        background: var(--primary-white);
-        border: var(--border-width) solid var(--structure-black);
-        padding: 24px;
-        position: relative;
-        transition: none;
-    }
-    
-    .brutalist-block::before {
-        content: '';
-        position: absolute;
-        top: 4px;
-        left: 4px;
-        right: -4px;
-        bottom: -4px;
-        background: var(--structure-black);
-        z-index: -1;
-    }
-    
-    /* Header Block */
-    .header-block {
-        grid-area: header;
-    }
-    
-    .system-title {
-        font-family: var(--font-mono);
-        font-size: clamp(18px, 3vw, 24px);
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 8px;
-    }
-    
-    .system-subtitle {
-        font-size: 14px;
-        color: var(--system-gray);
-        line-height: 1.4;
-    }
-    
-    /* Status Block */
-    .status-block {
-        grid-area: status;
-        background: var(--primary-white);
-    }
-    
-    .status-indicator {
-        font-family: var(--font-mono);
-        font-size: 12px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
-    }
-    
-    .status-details {
-        font-family: var(--font-mono);
-        font-size: 10px;
-        color: var(--system-gray);
-        line-height: 1.4;
-    }
-    
-    /* Upload Block */
-    .upload-block {
-        grid-area: upload;
-    }
-    
-    .upload-title {
-        font-family: var(--font-mono);
-        font-size: 14px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 16px;
-    }
-    
-    .upload-zone {
-        border: var(--border-width) dashed var(--system-gray);
-        padding: 48px 24px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        background: rgba(128, 128, 128, 0.02);
-    }
-    
-    .upload-zone:hover {
-        border-color: var(--accent-blue);
-        background: rgba(0, 102, 255, 0.02);
-    }
-    
-    .upload-zone.active {
-        border-color: var(--accent-blue);
-        background: rgba(0, 102, 255, 0.05);
-    }
-    
-    .upload-icon {
-        font-family: var(--font-mono);
-        font-size: 32px;
-        display: block;
-        margin-bottom: 8px;
-    }
-    
-    .upload-text {
-        font-size: 14px;
-        font-weight: 500;
-        margin-bottom: 4px;
-    }
-    
-    .upload-hint {
-        font-size: 11px;
-        color: var(--system-gray);
-    }
-    
-    /* Configuration Block */
-    .config-block {
-        grid-area: config;
-    }
-    
-    .config-title {
-        font-family: var(--font-mono);
-        font-size: 14px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 16px;
-    }
-    
-    .config-section {
-        margin-bottom: 16px;
-    }
-    
-    .config-section:last-child {
-        margin-bottom: 0;
-    }
-    
-    .field-label {
-        font-size: 12px;
-        font-weight: 500;
-        margin-bottom: 8px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--structure-black);
-    }
-    
-    .field-input, .field-select {
-        width: 100%;
-        padding: 12px;
-        border: var(--border-width) solid var(--structure-black);
-        background: var(--primary-white);
-        font-family: var(--font-sans);
-        font-size: 14px;
-        font-weight: 400;
-    }
-    
-    .field-input:focus, .field-select:focus {
-        outline: none;
-        border-color: var(--accent-blue);
-    }
-    
-    .field-help {
-        font-size: 11px;
-        color: var(--system-gray);
-        margin-top: 4px;
-        font-family: var(--font-mono);
-    }
-    
-    /* Features Block */
-    .features-block {
-        grid-area: features;
-    }
-    
-    .features-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: var(--grid-gap);
-    }
-    
-    .feature-item {
-        padding: 16px;
-        border: 1px solid var(--system-gray);
-        text-align: center;
-    }
-    
-    .feature-icon {
-        font-family: var(--font-mono);
-        font-size: 24px;
-        margin-bottom: 8px;
-        display: block;
-    }
-    
-    .feature-name {
-        font-size: 12px;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 4px;
-    }
-    
-    .feature-desc {
-        font-size: 10px;
-        color: var(--system-gray);
-        line-height: 1.3;
-    }
-    
-    /* Controls Block */
-    .controls-block {
-        grid-area: controls;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: var(--grid-gap);
-    }
-    
-    .control-group {
-        display: flex;
-        gap: var(--grid-gap);
-        align-items: center;
-    }
-    
-    /* Brutalist Buttons */
-    .brutalist-btn {
-        background: var(--structure-black);
-        color: var(--primary-white);
-        border: none;
-        padding: 16px 24px;
-        font-family: var(--font-mono);
-        font-size: 12px;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        cursor: pointer;
-        position: relative;
-        text-decoration: none;
-        display: inline-block;
-    }
-    
-    .brutalist-btn::before {
-        content: '';
-        position: absolute;
-        top: 4px;
-        left: 4px;
-        right: -4px;
-        bottom: -4px;
-        background: var(--accent-blue);
-        z-index: -1;
-        transition: all 0.1s ease;
-    }
-    
-    .brutalist-btn:hover::before {
-        top: 2px;
-        left: 2px;
-        right: -2px;
-        bottom: -2px;
-    }
-    
-    .brutalist-btn:active {
-        transform: translate(2px, 2px);
-    }
-    
-    .brutalist-btn:active::before {
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-    }
-    
-    .brutalist-btn.secondary {
-        background: var(--primary-white);
-        color: var(--structure-black);
-        border: var(--border-width) solid var(--structure-black);
-    }
-    
-    .brutalist-btn.secondary::before {
-        background: var(--system-gray);
-    }
-    
-    /* Responsive Design */
-    @media (max-width: 768px) {
-        .bento-grid {
-            grid-template-columns: 1fr;
-            grid-template-areas:
-                "header"
-                "status"
-                "upload"
-                "config"
-                "features"
-                "controls";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Metadata | Cultural Heritage Reconciliation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0066FF;
+            --primary-dark: #0052CC;
+            --secondary: #00FF88;
+            --accent: #FF3366;
+            --background: #FAFBFC;
+            --surface: #FFFFFF;
+            --surface-elevated: #F8F9FA;
+            --text-primary: #1A1D23;
+            --text-secondary: #6B7280;
+            --text-muted: #9CA3AF;
+            --border: #E5E7EB;
+            --border-focus: #3B82F6;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --font-mono: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
-        
-        .features-grid {
-            grid-template-columns: 1fr;
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
-        .controls-block {
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--background);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background Grid */
+        .background-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            opacity: 0.02;
+            z-index: -1;
+            background-image: 
+                linear-gradient(var(--primary) 1px, transparent 1px),
+                linear-gradient(90deg, var(--primary) 1px, transparent 1px);
+            background-size: 32px 32px;
+            animation: gridShift 60s linear infinite;
+        }
+
+        @keyframes gridShift {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(32px, 32px); }
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 1rem 0;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-family: var(--font-mono);
+            font-weight: 700;
+            font-size: 1.125rem;
+            color: var(--primary);
+            text-decoration: none;
+            letter-spacing: -0.025em;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--secondary);
+            border-radius: 50%;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Main Content */
+        .main {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+            min-height: calc(100vh - 80px);
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+            line-height: 1.1;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Upload Card */
+        .upload-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .upload-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+        }
+
+        .card-header {
+            padding: 2rem 2rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .card-content {
+            padding: 2rem;
+        }
+
+        /* File Upload Zone */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-md);
+            padding: 3rem 2rem;
+            text-align: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: var(--primary);
+            background: rgba(0, 102, 255, 0.02);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .upload-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .upload-text {
+            font-size: 1.125rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-hint {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .file-input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* Configuration Section */
+        .config-section {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .config-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-grid {
+            display: grid;
+            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        .form-group {
+            display: flex;
             flex-direction: column;
+            gap: 0.5rem;
         }
-    }
-</style>
 
-<div class="brutalist-container">
-    <!-- IMPORTANT: This form now wraps ALL inputs -->
-    <form method="POST" enctype="multipart/form-data" id="upload-form">
-        <!-- Main Bento Grid -->
-        <div class="bento-grid" id="main-grid">
-            <!-- Header Block -->
-            <div class="brutalist-block header-block">
-                <h1 class="system-title">Metadata Reconciliation System</h1>
-                <p class="system-subtitle">Entity linking and authority control processing interface</p>
-            </div>
+        .form-label {
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        .form-input,
+        .form-select {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            background: var(--surface);
+        }
+
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-help {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Data Sources */
+        .data-sources {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .source-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--surface-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .source-chip:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .source-chip input[type="checkbox"] {
+            margin: 0;
+        }
+
+        /* Submit Button */
+        .submit-section {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .submit-btn:hover::before {
+            left: 100%;
+        }
+
+        /* Progress Indicator */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .main {
+                padding: 2rem 1rem;
+            }
             
-            <!-- Status Block -->
-            <div class="brutalist-block status-block">
-                <div class="status-indicator">System Status</div>
-                <div class="status-details">
-                    SPARQL_ENDPOINT: ACTIVE<br>
-                    WIKIDATA_API: READY<br>
-                    PROCESSING_QUEUE: <span id="queue-count">0</span>
-                </div>
-            </div>
+            .hero h1 {
+                font-size: 2rem;
+            }
             
-            <!-- Upload Block -->
-            <div class="brutalist-block upload-block">
-                <h2 class="upload-title">Data Input</h2>
-                <div class="upload-zone" onclick="document.getElementById('file-input').click()">
-                    <span class="upload-icon">▦</span>
-                    <div class="upload-text">Select metadata file</div>
-                    <div class="upload-hint">CSV, XLSX • MAX 50MB</div>
-                    <input type="file" id="file-input" name="file" accept=".csv,.xlsx,.xls" style="display: none;" required>
-                </div>
-            </div>
+            .card-content {
+                padding: 1.5rem;
+            }
             
-            <!-- Configuration Block -->
-            <div class="brutalist-block config-block">
-                <h2 class="config-title">Processing Parameters</h2>
-                
-                <div class="config-section">
-                    <label class="field-label" for="entity_column">Entity Column [REQUIRED]</label>
-                    <input type="text" id="entity_column" name="entity_column" class="field-input" 
-                           placeholder="creator_name" required>
-                    <div class="field-help">COLUMN_CONTAINING_NAMES_TO_RECONCILE → PERSONS/ORGS/PLACES</div>
-                </div>
-                
-                <div class="config-section">
-                    <label class="field-label" for="type_column">Type Column [OPTIONAL]</label>
-                    <input type="text" id="type_column" name="type_column" class="field-input" 
-                           placeholder="entity_type">
-                    <div class="field-help">ENTITY_CLASSIFICATION_COLUMN → IMPROVES_MATCHING_ACCURACY</div>
-                </div>
-                
-                <div class="config-section">
-                    <label class="field-label" for="context_columns">Context Columns [OPTIONAL]</label>
-                    <input type="text" id="context_columns" name="context_columns" class="field-input" 
-                           placeholder="date_created,location,nationality">
-                    <div class="field-help">COMMA_SEPARATED_CONTEXT_FIELDS → DATES/PLACES/ROLES_FOR_DISAMBIGUATION</div>
-                </div>
-                
-                <div class="config-section">
-                    <label class="field-label" for="confidence_threshold">Confidence Threshold [DEFAULT]</label>
-                    <select id="confidence_threshold" name="confidence_threshold" class="field-select">
-                        <option value="0.8">HIGH_PRECISION (0.8)</option>
-                        <option value="0.6" selected>BALANCED (0.6)</option>
-                        <option value="0.4">BROAD_MATCH (0.4)</option>
-                    </select>
-                    <div class="field-help">MINIMUM_MATCH_CONFIDENCE → HIGHER_VALUES_REDUCE_FALSE_POSITIVES</div>
-                </div>
-                
-                <div class="config-section">
-                    <label class="field-label" for="data_sources">Authority Sources [DEFAULT]</label>
-                    <select id="data_sources" name="data_sources" class="field-select" multiple>
-                        <option value="wikidata" selected>WIKIDATA</option>
-                        <option value="viaf" selected>VIAF</option>
-                        <option value="getty">GETTY</option>
-                        <option value="loc">LOC</option>
-                    </select>
-                    <div class="field-help">EXTERNAL_DATABASES_TO_QUERY → CTRL+CLICK_MULTI_SELECT</div>
-                </div>
-            </div>
+            .upload-zone {
+                padding: 2rem 1rem;
+            }
             
-            <!-- Features Block -->
-            <div class="brutalist-block features-block">
-                <h2 class="config-title">System Capabilities</h2>
-                <div class="features-grid">
-                    <div class="feature-item">
-                        <span class="feature-icon">▣</span>
-                        <div class="feature-name">Entity Extraction</div>
-                        <div class="feature-desc">Automated identification and classification</div>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">▤</span>
-                        <div class="feature-name">Authority Linking</div>
-                        <div class="feature-desc">Cross-reference with external databases</div>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">▥</span>
-                        <div class="feature-name">Confidence Scoring</div>
-                        <div class="feature-desc">Statistical matching assessment</div>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">▦</span>
-                        <div class="feature-name">Batch Processing</div>
-                        <div class="feature-desc">Scalable dataset reconciliation</div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Controls Block -->
-            <div class="brutalist-block controls-block">
-                <div class="control-group">
-                    <button type="submit" class="brutalist-btn">Execute Process</button>
-                    <button type="button" class="brutalist-btn secondary" onclick="resetForm()">Reset Parameters</button>
-                </div>
-                <div class="control-group">
-                    <span style="font-family: var(--font-mono); font-size: 10px; color: var(--system-gray);">
-                        LAST_MODIFIED: <span id="timestamp">--:--:--</span>
-                    </span>
-                </div>
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Flash Messages */
+        .flash-messages {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .flash-message {
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            box-shadow: var(--shadow-lg);
+            animation: slideIn 0.3s ease;
+        }
+
+        .flash-message.success {
+            background: var(--secondary);
+            color: var(--text-primary);
+        }
+
+        .flash-message.error {
+            background: var(--accent);
+            color: white;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-grid"></div>
+    
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="logo">METADATA_RECONCILIATION</a>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                SYSTEM_ACTIVE
             </div>
         </div>
-    </form>
-</div>
+    </header>
 
-<script>
-    // File upload handling
-    document.getElementById('file-input').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        const uploadZone = document.querySelector('.upload-zone');
-        
-        if (file) {
-            uploadZone.classList.add('active');
-            uploadZone.innerHTML = `
-                <span class="upload-icon">▣</span>
-                <div class="upload-text">FILE_LOADED: ${file.name}</div>
-                <div class="upload-hint">SIZE: ${(file.size / 1024 / 1024).toFixed(2)}MB</div>
-            `;
+    <main class="main">
+        <div class="hero">
+            <h1>Upload Metadata</h1>
+            <p>Process cultural heritage metadata through advanced entity reconciliation with authoritative linked data sources</p>
+        </div>
+
+        <div class="upload-card">
+            <div class="card-header">
+                <h2 class="card-title">Import CSV Data</h2>
+                <p class="card-subtitle">Upload your metadata file for processing against Wikidata, VIAF, and Getty vocabularies</p>
+            </div>
             
-            // Preview CSV columns
-            previewColumns(file);
+            <div class="card-content">
+                <form method="POST" enctype="multipart/form-data" id="upload-form">
+                    <!-- File Upload Zone -->
+                    <div class="upload-zone" id="upload-zone">
+                        <div class="upload-icon">📊</div>
+                        <div class="upload-text">Choose CSV file or drag and drop</div>
+                        <div class="upload-hint">Maximum file size: 50MB</div>
+                        <input type="file" name="file" class="file-input" id="file-input" accept=".csv" required>
+                    </div>
+
+                    <!-- Configuration Section -->
+                    <div class="config-section">
+                        <h3 class="config-title">
+                            ⚙️ Processing Configuration
+                        </h3>
+                        
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="entity_column" class="form-label">Entity Column</label>
+                                <select name="entity_column" id="entity_column" class="form-select" required>
+                                    <option value="">Select column containing entity names...</option>
+                                    <option value="creator_name">creator_name</option>
+                                    <option value="author">author</option>
+                                    <option value="artist">artist</option>
+                                    <option value="name">name</option>
+                                    <option value="title">title</option>
+                                </select>
+                                <span class="form-help">Column containing the entities to reconcile</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="type_column" class="form-label">Entity Type Column (Optional)</label>
+                                <select name="type_column" id="type_column" class="form-select">
+                                    <option value="">Auto-detect entity types</option>
+                                    <option value="entity_type">entity_type</option>
+                                    <option value="type">type</option>
+                                    <option value="category">category</option>
+                                </select>
+                                <span class="form-help">Column indicating entity types (person, place, organization)</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="context_columns" class="form-label">Context Columns</label>
+                                <input type="text" name="context_columns" id="context_columns" class="form-input" 
+                                       placeholder="date,location,description">
+                                <span class="form-help">Comma-separated list of columns providing context</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="confidence_threshold" class="form-label">Confidence Threshold</label>
+                                <select name="confidence_threshold" id="confidence_threshold" class="form-select">
+                                    <option value="0.5">Low (0.5) - More matches</option>
+                                    <option value="0.7" selected>Medium (0.7) - Balanced</option>
+                                    <option value="0.9">High (0.9) - Precise matches only</option>
+                                </select>
+                                <span class="form-help">Minimum confidence for accepting matches</span>
+                            </div>
+                        </div>
+
+                        <!-- Data Sources -->
+                        <div class="form-group" style="margin-top: 1.5rem;">
+                            <label class="form-label">Data Sources</label>
+                            <div class="data-sources">
+                                <label class="source-chip">
+                                    <input type="checkbox" name="data_sources" value="wikidata" checked>
+                                    🌐 Wikidata
+                                </label>
+                                <label class="source-chip">
+                                    <input type="checkbox" name="data_sources" value="viaf" checked>
+                                    📚 VIAF
+                                </label>
+                                <label class="source-chip">
+                                    <input type="checkbox" name="data_sources" value="getty" checked>
+                                    🏛️ Getty
+                                </label>
+                                <label class="source-chip">
+                                    <input type="checkbox" name="data_sources" value="loc" checked>
+                                    📖 Library of Congress
+                                </label>
+                            </div>
+                            <span class="form-help">Select which authority sources to query</span>
+                        </div>
+                    </div>
+
+                    <!-- Submit Section -->
+                    <div class="submit-section">
+                        <button type="submit" class="submit-btn" id="submit-btn">
+                            🚀 Start Reconciliation Process
+                        </button>
+                        <div class="progress-bar" id="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // File upload drag and drop functionality
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('file-input');
+        const uploadForm = document.getElementById('upload-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const progressBar = document.getElementById('progress-bar');
+        const progressFill = document.getElementById('progress-fill');
+
+        // Drag and drop handlers
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                updateUploadUI(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                updateUploadUI(e.target.files[0]);
+            }
+        });
+
+        function updateUploadUI(file) {
+            const uploadText = uploadZone.querySelector('.upload-text');
+            const uploadHint = uploadZone.querySelector('.upload-hint');
+            
+            uploadText.textContent = file.name;
+            uploadHint.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            
+            uploadZone.style.borderColor = 'var(--secondary)';
+            uploadZone.style.background = 'rgba(0, 255, 136, 0.05)';
         }
-    });
-    
-    // Preview CSV columns to help user select the right column
-    function previewColumns(file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const text = e.target.result;
-            const firstLine = text.split('\n')[0];
-            const columns = firstLine.split(',').map(col => col.trim());
+
+        // Form submission with progress simulation
+        uploadForm.addEventListener('submit', (e) => {
+            if (!fileInput.files.length) {
+                e.preventDefault();
+                alert('Please select a CSV file first.');
+                return;
+            }
+
+            submitBtn.textContent = '⏳ Processing...';
+            submitBtn.disabled = true;
+            progressBar.style.display = 'block';
             
-            // Update field placeholders with actual column names
-            if (columns.length > 0) {
-                document.getElementById('entity_column').placeholder = `e.g., ${columns[0]}`;
-                if (columns.length > 1) {
-                    document.getElementById('type_column').placeholder = `e.g., ${columns[1]}`;
+            // Simulate progress
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress > 90) {
+                    clearInterval(interval);
+                    progress = 90;
+                }
+                progressFill.style.width = progress + '%';
+            }, 200);
+        });
+
+        // Dynamic column detection
+        fileInput.addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                try {
+                    const text = await file.text();
+                    const lines = text.split('\n');
+                    if (lines.length > 0) {
+                        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+                        updateColumnOptions(headers);
+                    }
+                } catch (error) {
+                    console.error('Error reading file:', error);
                 }
             }
-        };
-        reader.readAsText(file.slice(0, 1024)); // Read first 1KB only
-    }
-    
-    // Form validation
-    document.getElementById('upload-form').addEventListener('submit', function(e) {
-        const fileInput = document.getElementById('file-input');
-        const entityColumn = document.getElementById('entity_column').value;
-        
-        if (!fileInput.files[0]) {
-            e.preventDefault();
-            alert('ERROR: NO_FILE_SELECTED\n\nPlease select a CSV file to upload.');
-            return;
+        });
+
+        function updateColumnOptions(headers) {
+            const entitySelect = document.getElementById('entity_column');
+            const typeSelect = document.getElementById('type_column');
+            
+            // Clear existing options except first
+            entitySelect.innerHTML = '<option value="">Select column containing entity names...</option>';
+            typeSelect.innerHTML = '<option value="">Auto-detect entity types</option>';
+            
+            headers.forEach(header => {
+                const entityOption = new Option(header, header);
+                const typeOption = new Option(header, header);
+                entitySelect.appendChild(entityOption);
+                typeSelect.appendChild(typeOption);
+            });
         }
-        
-        if (!entityColumn.trim()) {
-            e.preventDefault();
-            alert('ERROR: ENTITY_COLUMN_REQUIRED\n\nPlease specify which column contains the entities to reconcile.');
-            return;
-        }
-        
-        // Show processing indicator
-        const submitBtn = e.target.querySelector('button[type="submit"]');
-        submitBtn.textContent = 'PROCESSING...';
-        submitBtn.disabled = true;
-    });
-    
-    // Reset form
-    function resetForm() {
-        document.getElementById('upload-form').reset();
-        const uploadZone = document.querySelector('.upload-zone');
-        uploadZone.classList.remove('active');
-        uploadZone.innerHTML = `
-            <span class="upload-icon">▦</span>
-            <div class="upload-text">Select metadata file</div>
-            <div class="upload-hint">CSV, XLSX • MAX 50MB</div>
-        `;
-    }
-    
-    // Update timestamp
-    function updateTimestamp() {
-        const now = new Date();
-        const timestamp = now.toLocaleTimeString('en-US', { hour12: false });
-        document.getElementById('timestamp').textContent = timestamp;
-    }
-    
-    updateTimestamp();
-    setInterval(updateTimestamp, 1000);
-    
-    // Check system status periodically
-    function checkSystemStatus() {
-        fetch('/api/system_status')
-            .then(response => response.json())
-            .then(data => {
-                // Update queue count if available
-                if (data.queue_count !== undefined) {
-                    document.getElementById('queue-count').textContent = data.queue_count;
-                }
-            })
-            .catch(error => console.error('Status check failed:', error));
-    }
-    
-    // Check status every 30 seconds
-    setInterval(checkSystemStatus, 30000);
-</script>
-{% endblock %}
+
+        // Auto-dismiss flash messages
+        setTimeout(() => {
+            const flashMessages = document.querySelectorAll('.flash-message');
+            flashMessages.forEach(msg => {
+                msg.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => msg.remove(), 300);
+            });
+        }, 5000);
+    </script>
+</body>
+</html>
