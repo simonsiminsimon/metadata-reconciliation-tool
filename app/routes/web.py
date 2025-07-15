@@ -1,5 +1,14 @@
 # File: app/routes/web.py
-# Simple version without background job dependencies
+"""
+Optimized web routes for the Metadata Reconciliation System.
+This handles all web requests and form submissions.
+
+Key improvements:
+1. Better error handling and user feedback
+2. Proper form data validation
+3. Support for both threaded and background processing
+4. Clear separation of concerns
+"""
 
 from flask import render_template, request, redirect, url_for, flash, send_file, jsonify
 from werkzeug.utils import secure_filename
@@ -10,464 +19,498 @@ import pandas as pd
 from datetime import datetime
 from io import StringIO, BytesIO
 import threading
+import logging
 
 # Import our components
 from app.services.metadata_parser import MetadataParser
-from app.services.enhanced_reconciliation_engine import EnhancedReconciliationEngine, EntityType
+from app.services.reconciliation_engine import ReconciliationEngine
 from app.database import JobManager, ResultsManager
 
-# Use simple threaded processing (no Redis/Celery needed)
-BACKGROUND_JOBS_AVAILABLE = False
-print("📝 Using threaded processing (no background jobs)")
+# Set up logging
+logger = logging.getLogger(__name__)
+
+# Check if background jobs are available
+try:
+    from app.background_jobs import process_reconciliation_job
+    BACKGROUND_JOBS_AVAILABLE = True
+    logger.info("✅ Background jobs (Celery + Redis) available")
+except ImportError as e:
+    BACKGROUND_JOBS_AVAILABLE = False
+    logger.warning(f"⚠️  Background jobs not available: {e}")
+    logger.info("📝 Using threaded processing as fallback")
+
+
+def validate_csv_file(file):
+    """
+    Validate uploaded CSV file.
+    Returns (is_valid, error_message)
+    """
+    if not file or file.filename == '':
+        return False, "No file selected"
+    
+    # Check file extension
+    if not file.filename.lower().endswith('.csv'):
+        return False, "Only CSV files are supported"
+    
+    # Check file size (50MB limit)
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)  # Reset file pointer
+    
+    if file_size > 50 * 1024 * 1024:
+        return False, "File size exceeds 50MB limit"
+    
+    # Try to read the file to validate it's a proper CSV
+    try:
+        content = file.read().decode('utf-8')
+        file.seek(0)  # Reset for later use
+        df = pd.read_csv(StringIO(content), nrows=5)
+        if df.empty:
+            return False, "CSV file appears to be empty"
+    except Exception as e:
+        return False, f"Invalid CSV file: {str(e)}"
+    
+    return True, None
+
 
 def register_web_routes(app):
+    """Register all web routes with the Flask app"""
     
     @app.route('/')
     def index():
+        """Home page - redirect to upload"""
         return redirect(url_for('upload'))
     
     @app.route('/upload', methods=['GET', 'POST'])
     def upload():
+        """Handle file upload and job creation"""
         if request.method == 'POST':
-            # Handle file upload
+            # Validate file upload
             if 'file' not in request.files:
-                flash('No file selected', 'error')
+                flash('No file selected. Please choose a CSV file.', 'error')
                 return redirect(request.url)
             
             file = request.files['file']
-            if file.filename == '':
-                flash('No file selected', 'error')
+            is_valid, error_msg = validate_csv_file(file)
+            
+            if not is_valid:
+                flash(error_msg, 'error')
                 return redirect(request.url)
             
-            if file and file.filename.lower().endswith('.csv'):
-                # Save file
-                filename = secure_filename(file.filename)
-                job_id = str(uuid.uuid4())
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{job_id}_{filename}")
+            # Get and validate form data
+            entity_column = request.form.get('entity_column', '').strip()
+            if not entity_column:
+                flash('Entity column is required. Please specify which column contains the entities to reconcile.', 'error')
+                return redirect(request.url)
+            
+            # Save file with unique name
+            filename = secure_filename(file.filename)
+            job_id = str(uuid.uuid4())
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{job_id}_{filename}")
+            
+            try:
                 file.save(filepath)
-                
-                # Get form data
-                entity_column = request.form.get('entity_column')
-                type_column = request.form.get('type_column')
-                context_columns = request.form.getlist('context_columns')
-                data_sources = request.form.getlist('data_sources')
-                confidence_threshold = float(request.form.get('confidence_threshold', 0.8))
-                
-                # Create job record in database
-                job_data = {
-                    'id': job_id,
-                    'filename': filename,
-                    'filepath': filepath,
-                    'entity_column': entity_column,
-                    'type_column': type_column,
-                    'context_columns': context_columns,
-                    'data_sources': data_sources,
-                    'confidence_threshold': confidence_threshold
-                }
-                
+            except Exception as e:
+                flash(f'Failed to save file: {str(e)}', 'error')
+                return redirect(request.url)
+            
+            # Parse optional parameters
+            type_column = request.form.get('type_column', '').strip() or None
+            context_columns_str = request.form.get('context_columns', '').strip()
+            context_columns = [col.strip() for col in context_columns_str.split(',') if col.strip()] if context_columns_str else []
+            
+            # Parse data sources (handle multiple selection)
+            data_sources = request.form.getlist('data_sources')
+            if not data_sources:  # Default if none selected
+                data_sources = ['wikidata', 'viaf']
+            
+            # Parse confidence threshold
+            try:
+                confidence_threshold = float(request.form.get('confidence_threshold', 0.6))
+            except ValueError:
+                confidence_threshold = 0.6
+            
+            # Create job record
+            job_data = {
+                'id': job_id,
+                'filename': filename,
+                'filepath': filepath,
+                'entity_column': entity_column,
+                'type_column': type_column,
+                'context_columns': context_columns,
+                'data_sources': data_sources,
+                'confidence_threshold': confidence_threshold,
+                'status': 'uploaded',
+                'progress': 0,
+                'created_at': datetime.now().isoformat(),
+                'total_entities': 0,
+                'successful_matches': 0
+            }
+            
+            try:
                 JobManager.create_job(job_data)
-                
-                # Start threaded processing
-                start_threaded_processing(job_id)
-                flash(f'File uploaded successfully! Processing started.', 'success')
-                
-                return redirect(url_for('processing', job_id=job_id))
+                logger.info(f"Created job {job_id} for file {filename}")
+            except Exception as e:
+                flash(f'Failed to create job: {str(e)}', 'error')
+                # Clean up uploaded file
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                return redirect(request.url)
+            
+            # Start processing
+            if BACKGROUND_JOBS_AVAILABLE:
+                try:
+                    # Queue background job
+                    task = process_reconciliation_job.delay(job_id)
+                    JobManager.update_job(job_id, {
+                        'status': 'queued',
+                        'task_id': task.id
+                    })
+                    flash('File uploaded successfully! Processing in background...', 'success')
+                    logger.info(f"Queued background task {task.id} for job {job_id}")
+                except Exception as e:
+                    logger.error(f"Failed to queue background job: {e}")
+                    # Fallback to threaded processing
+                    start_threaded_processing(job_id)
+                    flash('File uploaded successfully! Processing started...', 'success')
             else:
-                flash('Please upload a CSV file', 'error')
+                # Use threaded processing
+                start_threaded_processing(job_id)
+                flash('File uploaded successfully! Processing started...', 'success')
+            
+            return redirect(url_for('processing', job_id=job_id))
         
+        # GET request - show upload form
         return render_template('upload.html')
     
     @app.route('/jobs')
     def jobs():
-        jobs = JobManager.get_all_jobs()
-        return render_template('jobs.html', jobs=jobs)
+        """Show all jobs"""
+        try:
+            all_jobs = JobManager.get_all_jobs()
+            # Sort by created_at descending (newest first)
+            all_jobs.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+            return render_template('jobs.html', jobs=all_jobs)
+        except Exception as e:
+            logger.error(f"Error loading jobs: {e}")
+            flash('Error loading jobs list', 'error')
+            return redirect(url_for('upload'))
     
     @app.route('/processing/<job_id>')
     def processing(job_id):
+        """Show processing status"""
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
             return redirect(url_for('jobs'))
-
-        # Start processing if not already started
-        if job['status'] == 'uploaded':
-            start_threaded_processing(job_id)
         
         return render_template('processing.html', job=job)
     
     @app.route('/review/<job_id>')
     def review(job_id):
+        """Review reconciliation results"""
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
             return redirect(url_for('jobs'))
         
-        # Get paginated results from database
-        page = int(request.args.get('page', 1))
+        if job['status'] != 'completed':
+            flash('Job is not yet complete', 'info')
+            return redirect(url_for('processing', job_id=job_id))
+        
+        # Get paginated results
+        page = request.args.get('page', 1, type=int)
         per_page = 10
         
-        results, total_count = ResultsManager.get_results(job_id, page, per_page)
-        
-        # Calculate pagination
-        total_pages = (total_count + per_page - 1) // per_page
-        pagination = {
-            'page': page,
-            'pages': total_pages,
-            'total': total_count,
-            'has_prev': page > 1,
-            'has_next': page < total_pages,
-            'prev_num': page - 1 if page > 1 else None,
-            'next_num': page + 1 if page < total_pages else None
-        }
-        
-        return render_template('review.html', job=job, results=results, pagination=pagination)
+        try:
+            results, total_count = ResultsManager.get_results(job_id, page, per_page)
+            
+            # Calculate pagination info
+            total_pages = (total_count + per_page - 1) // per_page
+            pagination = {
+                'page': page,
+                'pages': total_pages,
+                'total': total_count,
+                'has_prev': page > 1,
+                'has_next': page < total_pages,
+                'prev_num': page - 1 if page > 1 else None,
+                'next_num': page + 1 if page < total_pages else None
+            }
+            
+            return render_template('review.html', 
+                                 job=job, 
+                                 results=results, 
+                                 pagination=pagination)
+        except Exception as e:
+            logger.error(f"Error loading results for job {job_id}: {e}")
+            flash('Error loading results', 'error')
+            return redirect(url_for('jobs'))
     
     @app.route('/export/<job_id>')
     def export(job_id):
+        """Export options page"""
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
             return redirect(url_for('jobs'))
-
+        
+        if job['status'] != 'completed':
+            flash('Job is not yet complete', 'info')
+            return redirect(url_for('processing', job_id=job_id))
+        
         return render_template('export.html', job=job)
     
     @app.route('/download/<job_id>/<format>')
     def download_results(job_id, format):
-        """Download reconciliation results in various formats"""
+        """Download results in specified format"""
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
             return redirect(url_for('jobs'))
         
-        # Get all results for export (no pagination)
-        results, _ = ResultsManager.get_results(job_id, page=1, per_page=10000)
-        
-        if not results:
-            flash('No results found for this job', 'error')
-            return redirect(url_for('export', job_id=job_id))
-
+        # Get all results for export
         try:
+            results, total = ResultsManager.get_results(job_id, page=1, per_page=10000)
+            if not results:
+                flash('No results found for this job', 'error')
+                return redirect(url_for('export', job_id=job_id))
+            
             if format == 'csv':
-                return download_csv(job, results)
+                return export_csv(job, results)
             elif format == 'json':
-                return download_json(job, results)
+                return export_json(job, results)
             elif format == 'rdf':
-                return download_rdf(job, results)
-            elif format == 'report':
-                return download_report(job, results)
+                return export_rdf(job, results)
             else:
                 flash(f'Unsupported format: {format}', 'error')
                 return redirect(url_for('export', job_id=job_id))
                 
         except Exception as e:
-            flash(f'Export failed: {e}', 'error')
+            logger.error(f"Export failed for job {job_id}: {e}")
+            flash(f'Export failed: {str(e)}', 'error')
             return redirect(url_for('export', job_id=job_id))
 
 
 def start_threaded_processing(job_id):
     """Start processing in a separate thread"""
-    threading.Thread(
-        target=process_job_with_reconciliation, 
+    thread = threading.Thread(
+        target=process_job_threaded,
         args=(job_id,),
         daemon=True
-    ).start()
+    )
+    thread.start()
     
     JobManager.update_job(job_id, {'status': 'processing'})
-    print(f"🧵 Started threaded processing for job {job_id}")
+    logger.info(f"Started threaded processing for job {job_id}")
 
 
-def process_job_with_reconciliation(job_id):
+def process_job_threaded(job_id):
     """
-    Process a job with real reconciliation (threaded version).
+    Process a reconciliation job in a thread.
+    This is the fallback when Celery is not available.
     """
     try:
-        # Update job status
-        JobManager.update_job(job_id, {'status': 'processing', 'progress': 10})
-        
         job = JobManager.get_job(job_id)
-        print(f"🚀 Starting reconciliation for job {job_id}")
+        logger.info(f"Processing job {job_id} in thread")
         
-        # Step 1: Parse the CSV file
-        print(f"📄 Parsing CSV file: {job['filename']}")
-        try:
-            df = pd.read_csv(job['filepath'])
-            JobManager.update_job(job_id, {'progress': 20})
-            print(f"📊 Loaded CSV with {len(df)} rows, {len(df.columns)} columns")
-        except Exception as e:
-            raise Exception(f"Failed to read CSV file: {e}")
-        
-        # Step 2: Create reconciliation engine
-        print("🔧 Initializing reconciliation engine...")
-        engine = EnhancedReconciliationEngine()
-        JobManager.update_job(job_id, {'progress': 30})
-        
-        # Step 3: Create entities from the CSV
-        print("🎯 Creating entities for reconciliation...")
-        try:
-            entities = engine.create_entities_from_dataframe(
-                df,
-                entity_column=job['entity_column'],
-                type_column=job.get('type_column'),
-                context_columns=job.get('context_columns', [])
-            )
-        except Exception as e:
-            raise Exception(f"Failed to create entities from column '{job['entity_column']}': {e}")
-        
-        total_entities = len(entities)
-        if total_entities == 0:
-            raise Exception(f"No entities found in column '{job['entity_column']}'. Check your column selection.")
-        
+        # Update status
         JobManager.update_job(job_id, {
-            'total_entities': total_entities,
-            'progress': 40
+            'status': 'processing',
+            'progress': 10
         })
         
-        print(f"📊 Found {total_entities} entities to reconcile")
+        # Load CSV
+        df = pd.read_csv(job['filepath'])
+        total_rows = len(df)
         
-        # Step 4: Process entities in batches
-        print("🔍 Starting reconciliation process...")
-        all_results = []
-        batch_size = 5  # Smaller batches for better progress tracking
+        # Initialize reconciliation engine
+        engine = ReconciliationEngine()
         
-        for i in range(0, len(entities), batch_size):
-            batch = entities[i:i + batch_size]
+        # Create entities
+        entities = engine.create_entities_from_dataframe(
+            df,
+            entity_column=job['entity_column'],
+            type_column=job.get('type_column'),
+            context_columns=job.get('context_columns', [])
+        )
+        
+        total_entities = len(entities)
+        JobManager.update_job(job_id, {
+            'total_entities': total_entities,
+            'progress': 30
+        })
+        
+        # Process entities in batches
+        batch_size = 10
+        successful_matches = 0
+        
+        for i in range(0, total_entities, batch_size):
+            batch = entities[i:i+batch_size]
+            results = engine.process_entities(batch)
             
-            try:
-                batch_results = engine.process_entities(batch)
-                all_results.extend(batch_results)
+            # Store results
+            for result in results:
+                if result.best_match:
+                    successful_matches += 1
                 
-                # Update progress
-                progress = 40 + int((i + len(batch)) / len(entities) * 40)
-                JobManager.update_job(job_id, {'progress': progress})
+                result_data = {
+                    'entity': {
+                        'id': result.entity.id,
+                        'name': result.entity.name,
+                        'type': result.entity.entity_type.value,
+                        'context': result.entity.context
+                    },
+                    'best_match': {
+                        'id': result.best_match.id,
+                        'name': result.best_match.name,
+                        'score': result.best_match.score,
+                        'source': result.best_match.source,
+                        'description': result.best_match.description
+                    } if result.best_match else None,
+                    'matches': [
+                        {
+                            'id': match.id,
+                            'name': match.name,
+                            'score': match.score,
+                            'source': match.source,
+                            'description': match.description
+                        } for match in result.matches[:5]  # Top 5 matches
+                    ],
+                    'confidence': result.confidence.value,
+                    'sources_queried': result.sources_queried,
+                    'cached': result.cached
+                }
                 
-                matches_found = sum(1 for r in batch_results if r.best_match)
-                print(f"📈 Processed {i + len(batch)}/{len(entities)} entities ({matches_found} matches in this batch)")
-                
-            except Exception as e:
-                print(f"⚠️  Error processing batch {i//batch_size + 1}: {e}")
-                # Continue with other batches instead of failing completely
-                continue
+                ResultsManager.add_result(job_id, result_data)
+            
+            # Update progress
+            progress = 30 + int((i + batch_size) / total_entities * 60)
+            JobManager.update_job(job_id, {
+                'progress': min(progress, 90),
+                'successful_matches': successful_matches
+            })
         
-        JobManager.update_job(job_id, {'progress': 80})
-        
-        # Step 5: Save results to database
-        print("💾 Saving results to database...")
-        try:
-            saved_count = ResultsManager.save_results(job_id, all_results)
-            print(f"💾 Saved {saved_count} results to database")
-        except Exception as e:
-            raise Exception(f"Failed to save results: {e}")
-        
-        # Step 6: Update job completion
-        successful_matches = sum(1 for r in all_results if r.best_match)
+        # Mark as complete
         JobManager.update_job(job_id, {
             'status': 'completed',
             'progress': 100,
-            'successful_matches': successful_matches,
-            'completed_at': datetime.now().isoformat()
+            'completed_at': datetime.now().isoformat(),
+            'successful_matches': successful_matches
         })
         
-        print(f"✅ Reconciliation complete! {successful_matches}/{total_entities} matches found")
+        logger.info(f"Completed job {job_id}: {successful_matches}/{total_entities} matches")
         
     except Exception as e:
-        error_message = str(e)
-        print(f"❌ Error processing job {job_id}: {error_message}")
+        logger.error(f"Job {job_id} failed: {e}")
         JobManager.update_job(job_id, {
             'status': 'failed',
-            'error_message': error_message
+            'error_message': str(e),
+            'completed_at': datetime.now().isoformat()
         })
 
 
 # Export functions
-def download_csv(job, results):
-    """Create and download a CSV file with reconciliation results"""
-    print(f"📊 Creating CSV export for job {job['id']}")
+def export_csv(job, results):
+    """Export results as CSV"""
+    rows = []
     
-    csv_rows = []
     for result in results:
         entity = result['entity']
+        best_match = result.get('best_match')
         
-        base_row = {
+        row = {
             'original_name': entity['name'],
             'entity_type': entity['type'],
             'confidence': result['confidence'],
-            'sources_queried': ', '.join(result['sources_queried']),
-            'cached': result['cached'],
-            'num_matches': len(result['matches'])
+            'match_found': 'Yes' if best_match else 'No'
         }
         
         # Add context columns
-        for key, value in entity['context'].items():
-            base_row[f'context_{key}'] = value
+        for key, value in entity.get('context', {}).items():
+            row[f'context_{key}'] = value
         
-        # Add best match info
-        if result['matches']:
-            best_match = result['matches'][0]
-            base_row.update({
-                'matched_uri': f"https://example.org/{best_match['source']}/{best_match['id']}",
+        # Add match details
+        if best_match:
+            row.update({
                 'matched_name': best_match['name'],
                 'match_score': best_match['score'],
                 'match_source': best_match['source'],
-                'match_description': best_match['description']
-            })
-        else:
-            base_row.update({
-                'matched_uri': '',
-                'matched_name': '',
-                'match_score': '',
-                'match_source': '',
-                'match_description': 'No matches found'
+                'match_id': best_match['id'],
+                'match_description': best_match['description'][:200]  # Truncate long descriptions
             })
         
-        csv_rows.append(base_row)
+        rows.append(row)
     
     # Create DataFrame and convert to CSV
-    df = pd.DataFrame(csv_rows)
-    
-    # Create file in memory
-    output = StringIO()
-    df.to_csv(output, index=False)
+    df = pd.DataFrame(rows)
+    output = BytesIO()
+    df.to_csv(output, index=False, encoding='utf-8')
     output.seek(0)
     
-    # Convert to bytes for download
-    csv_bytes = BytesIO()
-    csv_bytes.write(output.getvalue().encode('utf-8'))
-    csv_bytes.seek(0)
-    
-    filename = f"{job['filename']}_reconciled.csv"
-    
     return send_file(
-        csv_bytes,
+        output,
         mimetype='text/csv',
         as_attachment=True,
-        download_name=filename
+        download_name=f"{job['filename']}_reconciled.csv"
     )
 
 
-def download_json(job, results):
-    """Create and download a JSON file with reconciliation results"""
-    print(f"📄 Creating JSON export for job {job['id']}")
-    
+def export_json(job, results):
+    """Export results as JSON"""
     export_data = {
         'job_info': {
             'id': job['id'],
             'filename': job['filename'],
-            'processed_at': job.get('completed_at', datetime.now().isoformat()),
+            'processed_at': job.get('completed_at'),
             'total_entities': job['total_entities'],
             'successful_matches': job['successful_matches']
         },
         'results': results
     }
     
-    json_bytes = BytesIO()
+    output = BytesIO()
     json_str = json.dumps(export_data, indent=2, ensure_ascii=False)
-    json_bytes.write(json_str.encode('utf-8'))
-    json_bytes.seek(0)
-    
-    filename = f"{job['filename']}_reconciled.json"
+    output.write(json_str.encode('utf-8'))
+    output.seek(0)
     
     return send_file(
-        json_bytes,
+        output,
         mimetype='application/json',
         as_attachment=True,
-        download_name=filename
+        download_name=f"{job['filename']}_reconciled.json"
     )
 
 
-def download_rdf(job, results):
-    """Create and download an RDF/XML file"""
-    print(f"🔗 Creating RDF export for job {job['id']}")
-    
+def export_rdf(job, results):
+    """Export results as RDF/XML"""
+    # Simple RDF export - could be enhanced with proper RDF libraries
     rdf_content = '''<?xml version="1.0" encoding="UTF-8"?>
 <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-         xmlns:skos="http://www.w3.org/2004/02/skos/core#"
-         xmlns:dcterms="http://purl.org/dc/terms/">
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#">
 '''
     
     for result in results:
         entity = result['entity']
-        if result['matches']:
-            best_match = result['matches'][0]
-            
+        best_match = result.get('best_match')
+        
+        if best_match:
             rdf_content += f'''
-  <rdf:Description rdf:about="urn:entity:{entity['id']}">
-    <dcterms:title>{entity['name']}</dcterms:title>
-    <skos:exactMatch rdf:resource="https://example.org/{best_match['source']}/{best_match['id']}"/>
-    <dcterms:type>{entity['type']}</dcterms:type>
-  </rdf:Description>
+    <rdf:Description rdf:about="local:{entity['id']}">
+        <rdfs:label>{entity['name']}</rdfs:label>
+        <owl:sameAs rdf:resource="{best_match['source']}:{best_match['id']}"/>
+    </rdf:Description>
 '''
     
     rdf_content += '</rdf:RDF>'
     
-    rdf_bytes = BytesIO()
-    rdf_bytes.write(rdf_content.encode('utf-8'))
-    rdf_bytes.seek(0)
-    
-    filename = f"{job['filename']}_reconciled.rdf"
+    output = BytesIO()
+    output.write(rdf_content.encode('utf-8'))
+    output.seek(0)
     
     return send_file(
-        rdf_bytes,
+        output,
         mimetype='application/rdf+xml',
         as_attachment=True,
-        download_name=filename
-    )
-
-
-def download_report(job, results):
-    """Create and download a reconciliation report"""
-    print(f"📋 Creating report for job {job['id']}")
-    
-    # Calculate statistics
-    total_entities = len(results)
-    matched_entities = sum(1 for r in results if r['matches'])
-    high_confidence = sum(1 for r in results if r['confidence'] == 'high')
-    medium_confidence = sum(1 for r in results if r['confidence'] == 'medium')
-    low_confidence = sum(1 for r in results if r['confidence'] == 'low')
-    
-    report_content = f"""RECONCILIATION REPORT
-====================
-
-Job Information:
-- Job ID: {job['id']}
-- File: {job['filename']}
-- Processed: {job.get('completed_at', 'Unknown')}
-- Status: {job['status']}
-- Processing Mode: Threaded
-
-Statistics:
-- Total Entities: {total_entities}
-- Successfully Matched: {matched_entities} ({matched_entities/total_entities*100:.1f}%)
-- High Confidence: {high_confidence}
-- Medium Confidence: {medium_confidence}
-- Low Confidence: {low_confidence}
-
-Detailed Results (First 20):
-"""
-    
-    for i, result in enumerate(results[:20], 1):
-        entity = result['entity']
-        report_content += f"\n{i}. {entity['name']} ({entity['type']})\n"
-        report_content += f"   Confidence: {result['confidence']}\n"
-        
-        if result['matches']:
-            best_match = result['matches'][0]
-            report_content += f"   Best Match: {best_match['name']} (Score: {best_match['score']:.2f})\n"
-            report_content += f"   Source: {best_match['source']}\n"
-        else:
-            report_content += "   No matches found\n"
-    
-    if len(results) > 20:
-        report_content += f"\n... and {len(results) - 20} more results"
-    
-    report_bytes = BytesIO()
-    report_bytes.write(report_content.encode('utf-8'))
-    report_bytes.seek(0)
-    
-    filename = f"{job['filename']}_report.txt"
-    
-    return send_file(
-        report_bytes,
-        mimetype='text/plain',
-        as_attachment=True,
-        download_name=filename
+        download_name=f"{job['filename']}_reconciled.rdf"
     )

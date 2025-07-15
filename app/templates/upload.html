@@ -83,22 +83,6 @@
         z-index: -1;
     }
     
-    /* Draggable/Resizable Indicators */
-    .brutalist-block[data-draggable="true"] {
-        cursor: move;
-    }
-    
-    .brutalist-block[data-draggable="true"]::after {
-        content: '⠿⠿⠿';
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        font-family: var(--font-mono);
-        font-size: 12px;
-        color: var(--system-gray);
-        letter-spacing: 2px;
-    }
-    
     /* Header Block */
     .header-block {
         grid-area: header;
@@ -106,65 +90,67 @@
     
     .system-title {
         font-family: var(--font-mono);
-        font-size: 24px;
+        font-size: clamp(18px, 3vw, 24px);
         font-weight: 700;
-        margin-bottom: 8px;
         text-transform: uppercase;
         letter-spacing: 1px;
+        margin-bottom: 8px;
     }
     
     .system-subtitle {
         font-size: 14px;
         color: var(--system-gray);
-        font-weight: 400;
+        line-height: 1.4;
     }
     
     /* Status Block */
     .status-block {
         grid-area: status;
-        background: var(--accent-blue);
-        color: var(--primary-white);
+        background: var(--primary-white);
     }
     
     .status-indicator {
         font-family: var(--font-mono);
         font-size: 12px;
-        font-weight: 500;
+        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
         margin-bottom: 8px;
     }
     
     .status-details {
-        font-size: 14px;
-        opacity: 0.9;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--system-gray);
+        line-height: 1.4;
     }
     
     /* Upload Block */
     .upload-block {
         grid-area: upload;
-        min-height: 200px;
     }
     
     .upload-title {
         font-family: var(--font-mono);
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 700;
-        margin-bottom: 16px;
         text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 16px;
     }
     
     .upload-zone {
-        border: 2px dashed var(--system-gray);
-        padding: 32px;
+        border: var(--border-width) dashed var(--system-gray);
+        padding: 48px 24px;
         text-align: center;
         cursor: pointer;
-        transition: border-color 0.2s ease;
-        background: transparent;
+        transition: all 0.2s ease;
+        background: rgba(128, 128, 128, 0.02);
     }
     
     .upload-zone:hover {
         border-color: var(--accent-blue);
+        background: rgba(0, 102, 255, 0.02);
     }
     
     .upload-zone.active {
@@ -174,23 +160,20 @@
     
     .upload-icon {
         font-family: var(--font-mono);
-        font-size: 48px;
-        margin-bottom: 16px;
+        font-size: 32px;
         display: block;
-    }
-    
-    .upload-text {
-        font-size: 16px;
-        font-weight: 500;
         margin-bottom: 8px;
     }
     
+    .upload-text {
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+    
     .upload-hint {
-        font-size: 12px;
+        font-size: 11px;
         color: var(--system-gray);
-        font-family: var(--font-mono);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
     
     /* Configuration Block */
@@ -200,14 +183,15 @@
     
     .config-title {
         font-family: var(--font-mono);
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 700;
-        margin-bottom: 24px;
         text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 16px;
     }
     
     .config-section {
-        margin-bottom: 24px;
+        margin-bottom: 16px;
     }
     
     .config-section:last-child {
@@ -252,7 +236,7 @@
     
     .features-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: var(--grid-gap);
     }
     
@@ -289,6 +273,8 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        flex-wrap: wrap;
+        gap: var(--grid-gap);
     }
     
     .control-group {
@@ -354,121 +340,17 @@
         background: var(--system-gray);
     }
     
-    /* Customization Panel */
-    .customization-toggle {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: var(--accent-blue);
-        color: var(--primary-white);
-        border: none;
-        width: 48px;
-        height: 48px;
-        font-family: var(--font-mono);
-        font-size: 16px;
-        cursor: pointer;
-        z-index: 1000;
-    }
-    
-    .customization-panel {
-        position: fixed;
-        top: 0;
-        right: -300px;
-        width: 300px;
-        height: 100vh;
-        background: var(--primary-white);
-        border-left: var(--border-width) solid var(--structure-black);
-        padding: 24px;
-        transition: right 0.3s ease;
-        z-index: 999;
-        overflow-y: auto;
-    }
-    
-    .customization-panel.open {
-        right: 0;
-    }
-    
-    .customization-panel::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -8px;
-        width: 8px;
-        height: 100%;
-        background: var(--structure-black);
-    }
-    
-    .panel-title {
-        font-family: var(--font-mono);
-        font-size: 14px;
-        font-weight: 700;
-        margin-bottom: 24px;
-        text-transform: uppercase;
-    }
-    
-    .panel-section {
-        margin-bottom: 24px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid var(--system-gray);
-    }
-    
-    .panel-section:last-child {
-        border-bottom: none;
-    }
-    
-    .panel-label {
-        font-size: 11px;
-        font-weight: 500;
-        margin-bottom: 8px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .layout-option {
-        display: block;
-        width: 100%;
-        padding: 8px;
-        margin-bottom: 8px;
-        background: transparent;
-        border: 1px solid var(--system-gray);
-        font-family: var(--font-mono);
-        font-size: 10px;
-        cursor: pointer;
-        text-align: left;
-    }
-    
-    .layout-option:hover, .layout-option.active {
-        background: var(--accent-blue);
-        color: var(--primary-white);
-    }
-    
-    /* Responsive Brutalist Grid */
-    @media (max-width: 1024px) {
-        .bento-grid {
-            grid-template-columns: repeat(8, 1fr);
-            grid-template-areas:
-                "header header header header header header status status"
-                "upload upload upload upload upload upload upload upload"
-                "config config config config config config config config"
-                "features features features features features features features features"
-                "controls controls controls controls controls controls controls controls";
-        }
-        
-        .features-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-    
+    /* Responsive Design */
     @media (max-width: 768px) {
         .bento-grid {
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: 1fr;
             grid-template-areas:
-                "header header header header"
-                "status status status status"
-                "upload upload upload upload"
-                "config config config config"
-                "features features features features"
-                "controls controls controls controls";
+                "header"
+                "status"
+                "upload"
+                "config"
+                "features"
+                "controls";
         }
         
         .features-grid {
@@ -477,266 +359,133 @@
         
         .controls-block {
             flex-direction: column;
-            gap: var(--grid-gap);
-        }
-        
-        .control-group {
-            width: 100%;
-            justify-content: center;
-        }
-        
-        .customization-panel {
-            width: 250px;
-            right: -250px;
-        }
-    }
-    
-    /* Grid Layout Variants */
-    .bento-grid.layout-compact {
-        grid-template-areas:
-            "header header header status status status config config config config config config"
-            "upload upload upload upload upload upload upload upload upload upload upload upload"
-            "features features features features features features features features features features features features"
-            "controls controls controls controls controls controls controls controls controls controls controls controls";
-    }
-    
-    .bento-grid.layout-sidebar {
-        grid-template-areas:
-            "header header header header header header header header header config config config"
-            "upload upload upload upload upload upload upload upload upload config config config"
-            "features features features features features features features features features config config config"
-            "controls controls controls controls controls controls status status status config config config";
-    }
-    
-    .bento-grid.layout-minimal {
-        grid-template-areas:
-            "header header header header header header header header header header status status"
-            "upload upload upload upload upload upload upload upload upload upload upload upload"
-            "controls controls controls controls controls controls controls controls controls controls controls controls";
-    }
-    
-    .bento-grid.layout-minimal .features-block {
-        display: none;
-    }
-    
-    /* Accessibility */
-    .brutalist-block:focus {
-        outline: 2px solid var(--accent-blue);
-        outline-offset: 2px;
-    }
-    
-    /* High contrast mode support */
-    @media (prefers-contrast: high) {
-        :root {
-            --primary-white: #FFFFFF;
-            --structure-black: #000000;
-            --system-gray: #666666;
-        }
-    }
-    
-    /* Reduced motion support */
-    @media (prefers-reduced-motion: reduce) {
-        .customization-panel {
-            transition: none;
-        }
-        
-        .brutalist-btn::before {
-            transition: none;
         }
     }
 </style>
 
 <div class="brutalist-container">
-    <!-- Customization Toggle -->
-    <button class="customization-toggle" onclick="toggleCustomization()">⚙</button>
-    
-    <!-- Customization Panel -->
-    <div class="customization-panel" id="customization-panel">
-        <h3 class="panel-title">Interface Configuration</h3>
-        
-        <div class="panel-section">
-            <div class="panel-label">Layout Presets</div>
-            <button class="layout-option active" onclick="setLayout('default')">DEFAULT_GRID</button>
-            <button class="layout-option" onclick="setLayout('compact')">COMPACT_VIEW</button>
-            <button class="layout-option" onclick="setLayout('sidebar')">SIDEBAR_CONFIG</button>
-            <button class="layout-option" onclick="setLayout('minimal')">MINIMAL_MODE</button>
-        </div>
-        
-        <div class="panel-section">
-            <div class="panel-label">Grid Density</div>
-            <input type="range" min="8" max="24" value="16" onchange="setGridGap(this.value)">
-            <div style="font-family: var(--font-mono); font-size: 10px; margin-top: 4px;">GAP: 16PX</div>
-        </div>
-        
-        <div class="panel-section">
-            <div class="panel-label">Block Visibility</div>
-            <label style="display: block; margin-bottom: 8px; font-size: 10px;">
-                <input type="checkbox" checked onchange="toggleBlock('features-block')"> FEATURES_DISPLAY
-            </label>
-            <label style="display: block; margin-bottom: 8px; font-size: 10px;">
-                <input type="checkbox" checked onchange="toggleBlock('status-block')"> STATUS_MONITOR
-            </label>
-        </div>
-    </div>
-    
-    <!-- Main Bento Grid -->
-    <div class="bento-grid" id="main-grid">
-        <!-- Header Block -->
-        <div class="brutalist-block header-block" data-draggable="true">
-            <h1 class="system-title">Metadata Reconciliation System</h1>
-            <p class="system-subtitle">Entity linking and authority control processing interface</p>
-        </div>
-        
-        <!-- Status Block -->
-        <div class="brutalist-block status-block" data-draggable="true">
-            <div class="status-indicator">System Status</div>
-            <div class="status-details">
-                SPARQL_ENDPOINT: ACTIVE<br>
-                WIKIDATA_API: READY<br>
-                PROCESSING_QUEUE: 0
+    <!-- IMPORTANT: This form now wraps ALL inputs -->
+    <form method="POST" enctype="multipart/form-data" id="upload-form">
+        <!-- Main Bento Grid -->
+        <div class="bento-grid" id="main-grid">
+            <!-- Header Block -->
+            <div class="brutalist-block header-block">
+                <h1 class="system-title">Metadata Reconciliation System</h1>
+                <p class="system-subtitle">Entity linking and authority control processing interface</p>
             </div>
-        </div>
-        
-        <!-- Upload Block -->
-        <div class="brutalist-block upload-block" data-draggable="true">
-            <h2 class="upload-title">Data Input</h2>
-            <form method="POST" enctype="multipart/form-data" id="upload-form">
+            
+            <!-- Status Block -->
+            <div class="brutalist-block status-block">
+                <div class="status-indicator">System Status</div>
+                <div class="status-details">
+                    SPARQL_ENDPOINT: ACTIVE<br>
+                    WIKIDATA_API: READY<br>
+                    PROCESSING_QUEUE: <span id="queue-count">0</span>
+                </div>
+            </div>
+            
+            <!-- Upload Block -->
+            <div class="brutalist-block upload-block">
+                <h2 class="upload-title">Data Input</h2>
                 <div class="upload-zone" onclick="document.getElementById('file-input').click()">
                     <span class="upload-icon">▦</span>
                     <div class="upload-text">Select metadata file</div>
                     <div class="upload-hint">CSV, XLSX • MAX 50MB</div>
                     <input type="file" id="file-input" name="file" accept=".csv,.xlsx,.xls" style="display: none;" required>
                 </div>
-            </form>
-        </div>
-        
-        <!-- Configuration Block -->
-        <div class="brutalist-block config-block" data-draggable="true">
-            <h2 class="config-title">Processing Parameters</h2>
-            
-            <div class="config-section">
-                <label class="field-label" for="entity_column">Entity Column [REQUIRED]</label>
-                <input type="text" id="entity_column" name="entity_column" class="field-input" 
-                       placeholder="creator_name" required>
-                <div class="field-help">COLUMN_CONTAINING_NAMES_TO_RECONCILE → PERSONS/ORGS/PLACES</div>
             </div>
             
-            <div class="config-section">
-                <label class="field-label" for="type_column">Type Column [OPTIONAL]</label>
-                <input type="text" id="type_column" name="type_column" class="field-input" 
-                       placeholder="entity_type">
-                <div class="field-help">ENTITY_CLASSIFICATION_COLUMN → IMPROVES_MATCHING_ACCURACY</div>
-            </div>
-            
-            <div class="config-section">
-                <label class="field-label" for="context_columns">Context Columns [OPTIONAL]</label>
-                <input type="text" id="context_columns" name="context_columns" class="field-input" 
-                       placeholder="date_created,location,nationality">
-                <div class="field-help">COMMA_SEPARATED_CONTEXT_FIELDS → DATES/PLACES/ROLES_FOR_DISAMBIGUATION</div>
-            </div>
-            
-            <div class="config-section">
-                <label class="field-label" for="confidence_threshold">Confidence Threshold [DEFAULT]</label>
-                <select id="confidence_threshold" name="confidence_threshold" class="field-select">
-                    <option value="0.8">HIGH_PRECISION (0.8)</option>
-                    <option value="0.6" selected>BALANCED (0.6)</option>
-                    <option value="0.4">BROAD_MATCH (0.4)</option>
-                </select>
-                <div class="field-help">MINIMUM_MATCH_CONFIDENCE → HIGHER_VALUES_REDUCE_FALSE_POSITIVES</div>
-            </div>
-            
-            <div class="config-section">
-                <label class="field-label" for="data_sources">Authority Sources [DEFAULT]</label>
-                <select id="data_sources" name="data_sources" class="field-select" multiple>
-                    <option value="wikidata" selected>WIKIDATA</option>
-                    <option value="viaf" selected>VIAF</option>
-                    <option value="getty" selected>GETTY</option>
-                    <option value="loc">LOC</option>
-                </select>
-                <div class="field-help">EXTERNAL_DATABASES_TO_QUERY → CTRL+CLICK_MULTI_SELECT</div>
-            </div>
-        </div>
-        
-        <!-- Features Block -->
-        <div class="brutalist-block features-block" data-draggable="true">
-            <h2 class="config-title">System Capabilities</h2>
-            <div class="features-grid">
-                <div class="feature-item">
-                    <span class="feature-icon">▣</span>
-                    <div class="feature-name">Entity Extraction</div>
-                    <div class="feature-desc">Automated identification and classification</div>
+            <!-- Configuration Block -->
+            <div class="brutalist-block config-block">
+                <h2 class="config-title">Processing Parameters</h2>
+                
+                <div class="config-section">
+                    <label class="field-label" for="entity_column">Entity Column [REQUIRED]</label>
+                    <input type="text" id="entity_column" name="entity_column" class="field-input" 
+                           placeholder="creator_name" required>
+                    <div class="field-help">COLUMN_CONTAINING_NAMES_TO_RECONCILE → PERSONS/ORGS/PLACES</div>
                 </div>
-                <div class="feature-item">
-                    <span class="feature-icon">▤</span>
-                    <div class="feature-name">Authority Linking</div>
-                    <div class="feature-desc">Cross-reference with external databases</div>
+                
+                <div class="config-section">
+                    <label class="field-label" for="type_column">Type Column [OPTIONAL]</label>
+                    <input type="text" id="type_column" name="type_column" class="field-input" 
+                           placeholder="entity_type">
+                    <div class="field-help">ENTITY_CLASSIFICATION_COLUMN → IMPROVES_MATCHING_ACCURACY</div>
                 </div>
-                <div class="feature-item">
-                    <span class="feature-icon">▥</span>
-                    <div class="feature-name">Confidence Scoring</div>
-                    <div class="feature-desc">Statistical matching assessment</div>
+                
+                <div class="config-section">
+                    <label class="field-label" for="context_columns">Context Columns [OPTIONAL]</label>
+                    <input type="text" id="context_columns" name="context_columns" class="field-input" 
+                           placeholder="date_created,location,nationality">
+                    <div class="field-help">COMMA_SEPARATED_CONTEXT_FIELDS → DATES/PLACES/ROLES_FOR_DISAMBIGUATION</div>
                 </div>
-                <div class="feature-item">
-                    <span class="feature-icon">▦</span>
-                    <div class="feature-name">Batch Processing</div>
-                    <div class="feature-desc">Scalable dataset reconciliation</div>
+                
+                <div class="config-section">
+                    <label class="field-label" for="confidence_threshold">Confidence Threshold [DEFAULT]</label>
+                    <select id="confidence_threshold" name="confidence_threshold" class="field-select">
+                        <option value="0.8">HIGH_PRECISION (0.8)</option>
+                        <option value="0.6" selected>BALANCED (0.6)</option>
+                        <option value="0.4">BROAD_MATCH (0.4)</option>
+                    </select>
+                    <div class="field-help">MINIMUM_MATCH_CONFIDENCE → HIGHER_VALUES_REDUCE_FALSE_POSITIVES</div>
+                </div>
+                
+                <div class="config-section">
+                    <label class="field-label" for="data_sources">Authority Sources [DEFAULT]</label>
+                    <select id="data_sources" name="data_sources" class="field-select" multiple>
+                        <option value="wikidata" selected>WIKIDATA</option>
+                        <option value="viaf" selected>VIAF</option>
+                        <option value="getty">GETTY</option>
+                        <option value="loc">LOC</option>
+                    </select>
+                    <div class="field-help">EXTERNAL_DATABASES_TO_QUERY → CTRL+CLICK_MULTI_SELECT</div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Controls Block -->
-        <div class="brutalist-block controls-block" data-draggable="true">
-            <div class="control-group">
-                <button type="submit" form="upload-form" class="brutalist-btn">Execute Process</button>
-                <button type="button" class="brutalist-btn secondary">Reset Parameters</button>
+            
+            <!-- Features Block -->
+            <div class="brutalist-block features-block">
+                <h2 class="config-title">System Capabilities</h2>
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <span class="feature-icon">▣</span>
+                        <div class="feature-name">Entity Extraction</div>
+                        <div class="feature-desc">Automated identification and classification</div>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">▤</span>
+                        <div class="feature-name">Authority Linking</div>
+                        <div class="feature-desc">Cross-reference with external databases</div>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">▥</span>
+                        <div class="feature-name">Confidence Scoring</div>
+                        <div class="feature-desc">Statistical matching assessment</div>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">▦</span>
+                        <div class="feature-name">Batch Processing</div>
+                        <div class="feature-desc">Scalable dataset reconciliation</div>
+                    </div>
+                </div>
             </div>
-            <div class="control-group">
-                <span style="font-family: var(--font-mono); font-size: 10px; color: var(--system-gray);">
-                    LAST_MODIFIED: <span id="timestamp">--:--:--</span>
-                </span>
+            
+            <!-- Controls Block -->
+            <div class="brutalist-block controls-block">
+                <div class="control-group">
+                    <button type="submit" class="brutalist-btn">Execute Process</button>
+                    <button type="button" class="brutalist-btn secondary" onclick="resetForm()">Reset Parameters</button>
+                </div>
+                <div class="control-group">
+                    <span style="font-family: var(--font-mono); font-size: 10px; color: var(--system-gray);">
+                        LAST_MODIFIED: <span id="timestamp">--:--:--</span>
+                    </span>
+                </div>
             </div>
         </div>
-    </div>
+    </form>
 </div>
 
 <script>
-    // Brutalist UI Controller
-    let currentLayout = 'default';
-    
-    function toggleCustomization() {
-        const panel = document.getElementById('customization-panel');
-        panel.classList.toggle('open');
-    }
-    
-    function setLayout(layout) {
-        const grid = document.getElementById('main-grid');
-        
-        // Remove existing layout classes
-        grid.classList.remove('layout-compact', 'layout-sidebar', 'layout-minimal');
-        
-        // Apply new layout
-        if (layout !== 'default') {
-            grid.classList.add(`layout-${layout}`);
-        }
-        
-        // Update active button
-        document.querySelectorAll('.layout-option').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
-        
-        currentLayout = layout;
-    }
-    
-    function setGridGap(value) {
-        document.documentElement.style.setProperty('--grid-gap', `${value}px`);
-        event.target.nextElementSibling.textContent = `GAP: ${value}PX`;
-    }
-    
-    function toggleBlock(blockClass) {
-        const block = document.querySelector(`.${blockClass}`);
-        const isVisible = block.style.display !== 'none';
-        block.style.display = isVisible ? 'none' : 'block';
-    }
-    
     // File upload handling
     document.getElementById('file-input').addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -749,8 +498,30 @@
                 <div class="upload-text">FILE_LOADED: ${file.name}</div>
                 <div class="upload-hint">SIZE: ${(file.size / 1024 / 1024).toFixed(2)}MB</div>
             `;
+            
+            // Preview CSV columns
+            previewColumns(file);
         }
     });
+    
+    // Preview CSV columns to help user select the right column
+    function previewColumns(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            const firstLine = text.split('\n')[0];
+            const columns = firstLine.split(',').map(col => col.trim());
+            
+            // Update field placeholders with actual column names
+            if (columns.length > 0) {
+                document.getElementById('entity_column').placeholder = `e.g., ${columns[0]}`;
+                if (columns.length > 1) {
+                    document.getElementById('type_column').placeholder = `e.g., ${columns[1]}`;
+                }
+            }
+        };
+        reader.readAsText(file.slice(0, 1024)); // Read first 1KB only
+    }
     
     // Form validation
     document.getElementById('upload-form').addEventListener('submit', function(e) {
@@ -759,16 +530,33 @@
         
         if (!fileInput.files[0]) {
             e.preventDefault();
-            alert('ERROR: NO_FILE_SELECTED');
+            alert('ERROR: NO_FILE_SELECTED\n\nPlease select a CSV file to upload.');
             return;
         }
         
         if (!entityColumn.trim()) {
             e.preventDefault();
-            alert('ERROR: ENTITY_COLUMN_REQUIRED');
+            alert('ERROR: ENTITY_COLUMN_REQUIRED\n\nPlease specify which column contains the entities to reconcile.');
             return;
         }
+        
+        // Show processing indicator
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.textContent = 'PROCESSING...';
+        submitBtn.disabled = true;
     });
+    
+    // Reset form
+    function resetForm() {
+        document.getElementById('upload-form').reset();
+        const uploadZone = document.querySelector('.upload-zone');
+        uploadZone.classList.remove('active');
+        uploadZone.innerHTML = `
+            <span class="upload-icon">▦</span>
+            <div class="upload-text">Select metadata file</div>
+            <div class="upload-hint">CSV, XLSX • MAX 50MB</div>
+        `;
+    }
     
     // Update timestamp
     function updateTimestamp() {
@@ -780,27 +568,20 @@
     updateTimestamp();
     setInterval(updateTimestamp, 1000);
     
-    // Close customization panel when clicking outside
-    document.addEventListener('click', function(e) {
-        const panel = document.getElementById('customization-panel');
-        const toggle = document.querySelector('.customization-toggle');
-        
-        if (!panel.contains(e.target) && !toggle.contains(e.target) && panel.classList.contains('open')) {
-            panel.classList.remove('open');
-        }
-    });
+    // Check system status periodically
+    function checkSystemStatus() {
+        fetch('/api/system_status')
+            .then(response => response.json())
+            .then(data => {
+                // Update queue count if available
+                if (data.queue_count !== undefined) {
+                    document.getElementById('queue-count').textContent = data.queue_count;
+                }
+            })
+            .catch(error => console.error('Status check failed:', error));
+    }
     
-    // Drag and drop functionality placeholder
-    // (Would need additional library like SortableJS for full implementation)
-    document.querySelectorAll('[data-draggable="true"]').forEach(block => {
-        block.addEventListener('mousedown', function(e) {
-            // Visual feedback for draggable blocks
-            this.style.opacity = '0.8';
-        });
-        
-        block.addEventListener('mouseup', function(e) {
-            this.style.opacity = '1';
-        });
-    });
+    // Check status every 30 seconds
+    setInterval(checkSystemStatus, 30000);
 </script>
 {% endblock %}
