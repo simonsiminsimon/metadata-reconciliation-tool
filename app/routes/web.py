@@ -72,7 +72,6 @@ def validate_csv_file(file):
     
     return True, None
 
-
 def register_web_routes(app):
     """Register all web routes with the Flask app"""
     
@@ -85,130 +84,149 @@ def register_web_routes(app):
     def upload():
         """Handle file upload and job creation"""
         if request.method == 'POST':
-            # Validate file upload
-            if 'file' not in request.files:
-                flash('No file selected. Please choose a CSV file.', 'error')
-                return redirect(request.url)
-            
-            file = request.files['file']
-            is_valid, error_msg = validate_csv_file(file)
-            
-            if not is_valid:
-                flash(error_msg, 'error')
-                return redirect(request.url)
-            
-            # Get and validate form data
-            entity_column = request.form.get('entity_column', '').strip()
-            if not entity_column:
-                flash('Entity column is required. Please specify which column contains the entities to reconcile.', 'error')
-                return redirect(request.url)
-            
-            # Save file with unique name
-            filename = secure_filename(file.filename)
-            job_id = str(uuid.uuid4())
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{job_id}_{filename}")
-            
-            try:
-                file.save(filepath)
-            except Exception as e:
-                flash(f'Failed to save file: {str(e)}', 'error')
-                return redirect(request.url)
-            
-            # Parse optional parameters
-            type_column = request.form.get('type_column', '').strip() or None
-            context_columns_str = request.form.get('context_columns', '').strip()
-            context_columns = [col.strip() for col in context_columns_str.split(',') if col.strip()] if context_columns_str else []
-            
-            # Parse data sources (handle multiple selection)
-            data_sources = request.form.getlist('data_sources')
-            if not data_sources:  # Default if none selected
-                data_sources = ['wikidata', 'viaf']
-            
-            # Parse confidence threshold
-            try:
-                confidence_threshold = float(request.form.get('confidence_threshold', 0.6))
-            except ValueError:
-                confidence_threshold = 0.6
-            
-            # Create job record
-            job_data = {
-                'id': job_id,
-                'filename': filename,
-                'filepath': filepath,
-                'entity_column': entity_column,
-                'type_column': type_column,
-                'context_columns': context_columns,
-                'data_sources': data_sources,
-                'confidence_threshold': confidence_threshold,
-                'status': 'uploaded',
-                'progress': 0,
-                'created_at': datetime.now().isoformat(),
-                'total_entities': 0,
-                'successful_matches': 0
-            }
-            
-            try:
-                JobManager.create_job(job_data)
-                logger.info(f"Created job {job_id} for file {filename}")
-            except Exception as e:
-                flash(f'Failed to create job: {str(e)}', 'error')
-                # Clean up uploaded file
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-                return redirect(request.url)
-            
-            # Start processing
-            if BACKGROUND_JOBS_AVAILABLE:
-                try:
-                    # Queue background job
-                    task = process_reconciliation_job.delay(job_id)
-                    JobManager.update_job(job_id, {
-                        'status': 'queued',
-                        'task_id': task.id
-                    })
-                    flash('File uploaded successfully! Processing in background...', 'success')
-                    logger.info(f"Queued background task {task.id} for job {job_id}")
-                except Exception as e:
-                    logger.error(f"Failed to queue background job: {e}")
-                    # Fallback to threaded processing
-                    start_threaded_processing(job_id)
-                    flash('File uploaded successfully! Processing started...', 'success')
-            else:
-                # Use threaded processing
-                start_threaded_processing(job_id)
-                flash('File uploaded successfully! Processing started...', 'success')
-            
-            return redirect(url_for('processing', job_id=job_id))
-        
-        # GET request - show upload form
+                    # Validate file upload
+                    if 'file' not in request.files:
+                        flash('No file selected. Please choose a CSV file.', 'error')
+                        return redirect(request.url)
+                    
+                    file = request.files['file']
+                    is_valid, error_msg = validate_csv_file(file)
+                    
+                    if not is_valid:
+                        flash(error_msg, 'error')
+                        return redirect(request.url)
+                    
+                    # Get and validate form data
+                    entity_column = request.form.get('entity_column', '').strip()
+                    if not entity_column:
+                        flash('Entity column is required. Please specify which column contains the entities to reconcile.', 'error')
+                        return redirect(request.url)
+                    
+                    # Save file with unique name
+                    filename = secure_filename(file.filename)
+                    job_id = str(uuid.uuid4())
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{job_id}_{filename}")
+                    
+                    try:
+                        file.save(filepath)
+                    except Exception as e:
+                        flash(f'Failed to save file: {str(e)}', 'error')
+                        return redirect(request.url)
+                    
+                    # Parse optional parameters
+                    type_column = request.form.get('type_column', '').strip() or None
+                    context_columns_str = request.form.get('context_columns', '').strip()
+                    context_columns = [col.strip() for col in context_columns_str.split(',') if col.strip()] if context_columns_str else []
+                    
+                    # Parse data sources (handle multiple selection)
+                    data_sources = request.form.getlist('data_sources')
+                    if not data_sources:  # Default if none selected
+                        data_sources = ['wikidata', 'viaf']
+                    
+                    # Parse confidence threshold
+                    try:
+                        confidence_threshold = float(request.form.get('confidence_threshold', 0.6))
+                    except ValueError:
+                        confidence_threshold = 0.6
+                    
+                    # Create job record
+                    job_data = {
+                        'id': job_id,
+                        'filename': filename,
+                        'filepath': filepath,
+                        'entity_column': entity_column,
+                        'type_column': type_column,
+                        'context_columns': context_columns,
+                        'data_sources': data_sources,
+                        'confidence_threshold': confidence_threshold,
+                        'status': 'uploaded',
+                        'progress': 0,
+                        'created_at': datetime.now().isoformat(),
+                        'total_entities': 0,
+                        'successful_matches': 0
+                    }
+                    
+                    try:
+                        JobManager.create_job(job_data)
+                        logger.info(f"Created job {job_id} for file {filename}")
+                    except Exception as e:
+                        flash(f'Failed to create job: {str(e)}', 'error')
+                        # Clean up uploaded file
+                        if os.path.exists(filepath):
+                            os.remove(filepath)
+                        return redirect(request.url)
+                    
+                    # Start processing
+                    if BACKGROUND_JOBS_AVAILABLE:
+                        try:
+                            # Queue background job
+                            task = process_reconciliation_job.delay(job_id)
+                            JobManager.update_job(job_id, {
+                                'status': 'queued',
+                                'task_id': task.id
+                            })
+                            flash('File uploaded successfully! Processing in background...', 'success')
+                            logger.info(f"Queued background task {task.id} for job {job_id}")
+                        except Exception as e:
+                            logger.error(f"Failed to queue background job: {e}")
+                            # Fallback to threaded processing
+                            start_threaded_processing(job_id)
+                            flash('File uploaded successfully! Processing started...', 'success')
+                    else:
+                        # Use threaded processing
+                        start_threaded_processing(job_id)
+                        flash('File uploaded successfully! Processing started...', 'success')
+                    
+                    return redirect(url_for('processing', job_id=job_id))
+        # Render upload form
         return render_template('upload.html')
     
     @app.route('/jobs')
     def jobs():
-        """Show all jobs"""
+        """Show all jobs - this route exists and should work"""
         try:
             all_jobs = JobManager.get_all_jobs()
-            # Sort by created_at descending (newest first)
-            all_jobs.sort(key=lambda x: x.get('created_at', ''), reverse=True)
             return render_template('jobs.html', jobs=all_jobs)
         except Exception as e:
             logger.error(f"Error loading jobs: {e}")
             flash('Error loading jobs list', 'error')
             return redirect(url_for('upload'))
     
+    # Add default routes for navigation (without job_id)
+    @app.route('/processing/')
+    @app.route('/processing')
+    def processing_default():
+        """Default processing page - redirect to jobs"""
+        flash('Please select a job to view processing status', 'info')
+        return redirect(url_for('jobs'))
+    
+    @app.route('/review/')
+    @app.route('/review')
+    def review_default():
+        """Default review page - redirect to jobs"""
+        flash('Please select a completed job to review results', 'info')
+        return redirect(url_for('jobs'))
+    
+    @app.route('/export/')
+    @app.route('/export')
+    def export_default():
+        """Default export page - redirect to jobs"""
+        flash('Please select a completed job to export results', 'info')
+        return redirect(url_for('jobs'))
+    
+    # Existing job-specific routes
     @app.route('/processing/<job_id>')
     def processing(job_id):
-        """Show processing status"""
+        """Show processing status for specific job"""
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
             return redirect(url_for('jobs'))
-        
         return render_template('processing.html', job=job)
     
     @app.route('/review/<job_id>')
     def review(job_id):
-        """Review reconciliation results"""
+        """Review reconciliation results for specific job"""
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
@@ -248,7 +266,7 @@ def register_web_routes(app):
     
     @app.route('/export/<job_id>')
     def export(job_id):
-        """Export options page"""
+        """Export options page for specific job"""
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
