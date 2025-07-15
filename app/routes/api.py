@@ -257,6 +257,109 @@ def register_api_routes(app):
         except Exception as e:
             logger.error(f"Failed to get statistics: {e}")
             return jsonify({'error': str(e)}), 500
+# Add these endpoints to your app/routes/api.py file inside the register_api_routes function:
+
+    # URL compatibility - JavaScript uses plural 'jobs', but we defined singular 'job'
+    @app.route('/api/jobs/<job_id>/status')
+    def jobs_status_compat(job_id):
+        """Job status endpoint with plural URL for JavaScript compatibility"""
+        return job_status(job_id)
+    
+    @app.route('/api/jobs/<job_id>/cancel', methods=['POST'])
+    def jobs_cancel_compat(job_id):
+        """Job cancel endpoint with plural URL for JavaScript compatibility"""
+        return cancel_job(job_id)
+    
+    # NEW ENDPOINTS that were missing:
+    
+    @app.route('/api/jobs/<job_id>/pause', methods=['POST'])
+    def pause_job(job_id):
+        """Pause a running job"""
+        job = JobManager.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        if job['status'] != 'processing':
+            return jsonify({'error': 'Job is not currently processing'}), 400
+        
+        try:
+            JobManager.update_job(job_id, {
+                'status': 'paused',
+                'error_message': 'Paused by user'
+            })
+            
+            logger.info(f"Job {job_id} paused by user")
+            return jsonify({'success': True, 'message': 'Job paused'})
+            
+        except Exception as e:
+            logger.error(f"Failed to pause job {job_id}: {e}")
+            return jsonify({'error': str(e)}), 500
+    
+    @app.route('/api/jobs/<job_id>/start', methods=['POST'])
+    def start_job_api(job_id):
+        """Start or resume a job"""
+        job = JobManager.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        if job['status'] not in ['uploaded', 'paused', 'failed']:
+            return jsonify({'error': f'Job cannot be started. Current status: {job["status"]}'}, 400)
+        
+        try:
+            # Update job status and start processing
+            JobManager.update_job(job_id, {
+                'status': 'processing',
+                'error_message': None
+            })
+            
+            # Import here to avoid circular imports
+            from app.routes.web import start_threaded_processing
+            start_threaded_processing(job_id)
+            
+            logger.info(f"Job {job_id} started by user")
+            return jsonify({'success': True, 'message': 'Job started'})
+            
+        except Exception as e:
+            logger.error(f"Failed to start job {job_id}: {e}")
+            JobManager.update_job(job_id, {'status': 'failed', 'error_message': str(e)})
+            return jsonify({'error': str(e)}), 500
+    
+    @app.route('/api/jobs/metrics')
+    def jobs_metrics():
+        """Get job metrics for dashboard"""
+        try:
+            all_jobs = JobManager.get_all_jobs()
+            
+            metrics = {
+                'total': len(all_jobs),
+                'processing': len([j for j in all_jobs if j['status'] == 'processing']),
+                'completed': len([j for j in all_jobs if j['status'] == 'completed']),
+                'failed': len([j for j in all_jobs if j['status'] == 'failed']),
+                'queued': len([j for j in all_jobs if j['status'] in ['queued', 'uploaded']]),
+                'paused': len([j for j in all_jobs if j['status'] == 'paused'])
+            }
+            
+            return jsonify(metrics)
+            
+        except Exception as e:
+            logger.error(f"Failed to get job metrics: {e}")
+            return jsonify({'error': str(e)}), 500
+    
+    @app.route('/api/jobs/<job_id>/progress')
+    def job_progress(job_id):
+        """Get progress for a specific job"""
+        job = JobManager.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        return jsonify({
+            'job_id': job_id,
+            'progress': job.get('progress', 0),
+            'status': job['status'],
+            'total_entities': job.get('total_entities', 0),
+            'successful_matches': job.get('successful_matches', 0),
+            'message': f"Processing {job.get('progress', 0)}% complete"
+        })
 
 
 def get_status_message(job):

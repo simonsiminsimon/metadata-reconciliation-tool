@@ -740,7 +740,17 @@
         <!-- Status Block -->
         <div class="brutalist-block status-block processing" id="status-block">
             <div class="status-current" id="current-status">PROCESSING</div>
-            <div class="status-timestamp" id="status-timestamp">Started: {{ job.created_at.strftime('%H:%M:%S') if job.created_at else 'Unknown' }}</div>
+            <div class="status-timestamp" id="status-timestamp">
+            Started: {% if job.created_at %}
+                {% if job.created_at.strftime %}
+                    {{ job.created_at.strftime('%H:%M:%S') }}
+                {% else %}
+                    {{ job.created_at[:8] if job.created_at|length > 8 else job.created_at }}
+                {% endif %}
+            {% else %}
+                Unknown
+                {% endif %}
+            </div>
         </div>
         
         <!-- Controls Block -->
@@ -852,27 +862,77 @@
             </div>
             <div class="logs-container" id="logs-container">
                 <div class="log-entry">
-                    <span class="log-timestamp">{{ job.created_at.strftime('%H:%M:%S') if job.created_at else '00:00:00' }}</span>
+                    <span class="log-timestamp">
+                    {% if job.created_at %}
+                        {% if job.created_at.strftime %}
+                            {{ job.created_at.strftime('%H:%M:%S') }}
+                        {% else %}
+                            {{ job.created_at[:8] if job.created_at|length > 8 else job.created_at }}
+                        {% endif %}
+                    {% else %}
+                        00:00:00
+                    {% endif %}
+                    </span>
                     <span class="log-level info">[INFO]</span>
                     <span class="log-message">JOB_INITIALIZED: {{ job.filename }}</span>
                 </div>
                 <div class="log-entry">
-                    <span class="log-timestamp">{{ job.created_at.strftime('%H:%M:%S') if job.created_at else '00:00:00' }}</span>
+                    <span class="log-timestamp">
+                    {% if job.created_at %}
+                        {% if job.created_at.strftime %}
+                            {{ job.created_at.strftime('%H:%M:%S') }}
+                        {% else %}
+                            {{ job.created_at[:8] if job.created_at|length > 8 else job.created_at }}
+                        {% endif %}
+                    {% else %}
+                        00:00:00
+                    {% endif %}
+                    </span>
                     <span class="log-level info">[INFO]</span>
                     <span class="log-message">CSV_FILE_LOADED: {{ job.total_entities or 0 }} entities detected</span>
                 </div>
                 <div class="log-entry">
-                    <span class="log-timestamp">{{ job.created_at.strftime('%H:%M:%S') if job.created_at else '00:00:00' }}</span>
+                    <span class="log-timestamp">
+                    {% if job.created_at %}
+                        {% if job.created_at.strftime %}
+                            {{ job.created_at.strftime('%H:%M:%S') }}
+                        {% else %}
+                            {{ job.created_at[:8] if job.created_at|length > 8 else job.created_at }}
+                        {% endif %}
+                    {% else %}
+                        00:00:00
+                    {% endif %}
+                    </span>
                     <span class="log-level success">[SUCC]</span>
                     <span class="log-message">WIKIDATA_CONNECTION_ESTABLISHED</span>
                 </div>
                 <div class="log-entry">
-                    <span class="log-timestamp">{{ job.created_at.strftime('%H:%M:%S') if job.created_at else '00:00:00' }}</span>
+                    <span class="log-timestamp">
+                    {% if job.created_at %}
+                        {% if job.created_at.strftime %}
+                            {{ job.created_at.strftime('%H:%M:%S') }}
+                        {% else %}
+                            {{ job.created_at[:8] if job.created_at|length > 8 else job.created_at }}
+                        {% endif %}
+                    {% else %}
+                        00:00:00
+                    {% endif %}
+                    </span>
                     <span class="log-level success">[SUCC]</span>
                     <span class="log-message">VIAF_API_READY</span>
                 </div>
                 <div class="log-entry">
-                    <span class="log-timestamp">{{ job.created_at.strftime('%H:%M:%S') if job.created_at else '00:00:00' }}</span>
+                    <span class="log-timestamp">
+                    {% if job.created_at %}
+                        {% if job.created_at.strftime %}
+                            {{ job.created_at.strftime('%H:%M:%S') }}
+                        {% else %}
+                            {{ job.created_at[:8] if job.created_at|length > 8 else job.created_at }}
+                        {% endif %}
+                    {% else %}
+                        00:00:00
+                    {% endif %}
+                    </span>
                     <span class="log-level info">[INFO]</span>
                     <span class="log-message">RECONCILIATION_ENGINE_STARTED</span>
                 </div>

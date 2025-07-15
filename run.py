@@ -5,6 +5,28 @@ This removes the duplicate route registration that was causing the Flask error.
 """
 
 from app.main import create_app
+from datetime import datetime
+
+def format_datetime(value, format='%Y-%m-%d %H:%M:%S'):
+    """Custom Jinja2 filter to safely format datetime strings or objects"""
+    if not value:
+        return 'Unknown'
+    
+    # If it's already a datetime object, use it directly
+    if hasattr(value, 'strftime'):
+        return value.strftime(format)
+    
+    # If it's a string, try to parse it
+    if isinstance(value, str):
+        try:
+            # Try to parse ISO format
+            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return dt.strftime(format)
+        except (ValueError, AttributeError):
+            # If parsing fails, return the string as-is (truncated if needed)
+            return value[:19] if len(value) > 19 else value
+    
+    return str(value)
 
 if __name__ == '__main__':
     # Create the app (routes are already registered in create_app())
@@ -26,3 +48,4 @@ if __name__ == '__main__':
         use_reloader=True,
         use_debugger=True
     )
+    app.jinja_env.filters['datetime'] = format_datetime

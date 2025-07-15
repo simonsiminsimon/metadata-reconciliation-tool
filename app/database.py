@@ -117,7 +117,25 @@ class JobManager:
     Manages job records in the database.
     Think of this as the person who organizes the filing cabinet.
     """
-    
+    @staticmethod
+    def _parse_datetime(date_string):
+        """Convert database datetime string to datetime object"""
+        if not date_string:
+            return None
+        try:
+            # If it's already a datetime object, return as-is
+            if isinstance(date_string, datetime):
+                return date_string
+            # Handle ISO format strings
+            if isinstance(date_string, str):
+                # Remove 'Z' and handle timezone info
+                clean_string = date_string.replace('Z', '+00:00')
+                return datetime.fromisoformat(clean_string)
+            return date_string
+        except (ValueError, AttributeError) as e:
+            print(f"DEBUG: Failed to parse datetime '{date_string}': {e}")
+            return None
+        
     @staticmethod
     def create_job(job_data: Dict[str, Any]) -> str:
         """Create a new job record"""
@@ -153,13 +171,13 @@ class JobManager:
             row = cursor.fetchone()
             
             if row:
-                return {
+                job_data = {
                     'id': row['id'],
                     'filename': row['filename'],
                     'filepath': row['filepath'],
                     'status': row['status'],
-                    'created_at': row['created_at'],
-                    'completed_at': row['completed_at'],
+                    'created_at': JobManager._parse_datetime(row['created_at']),
+                    'completed_at': JobManager._parse_datetime(row['completed_at']),
                     'entity_column': row['entity_column'],
                     'type_column': row['type_column'],
                     'context_columns': json.loads(row['context_columns'] or '[]'),
@@ -171,7 +189,12 @@ class JobManager:
                     'error_message': row['error_message'],
                     'settings': json.loads(row['settings'] or '{}')
                 }
-            return None
+                
+                # DEBUG: Print what we're returning
+                print(f"DEBUG: Returning job with created_at type: {type(job_data['created_at'])}")
+                print(f"DEBUG: created_at value: {job_data['created_at']}")
+                
+                return job_data
     
     @staticmethod
     def update_job(job_id: str, updates: Dict[str, Any]):
@@ -200,7 +223,7 @@ class JobManager:
     
     @staticmethod
     def get_all_jobs() -> List[Dict[str, Any]]:
-        """Get all jobs ordered by creation date"""
+        """Get all jobs ordered by creation date with proper datetime conversion"""
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('SELECT * FROM jobs ORDER BY created_at DESC')
@@ -212,77 +235,13 @@ class JobManager:
                     'id': row['id'],
                     'filename': row['filename'],
                     'status': row['status'],
-                    'created_at': row['created_at'],
+                    'created_at': JobManager._parse_datetime(row['created_at']),  # ← This is the key fix
                     'progress': row['progress'],
                     'total_entities': row['total_entities'],
                     'successful_matches': row['successful_matches']
                 })
             
             return jobs
-@staticmethod
-def _parse_datetime(date_string):
-    """Convert database datetime string to datetime object"""
-    if not date_string:
-        return None
-    try:
-        # Handle ISO format strings
-        if isinstance(date_string, str):
-            return datetime.fromisoformat(date_string.replace('Z', '+00:00'))
-        return date_string
-    except (ValueError, AttributeError):
-        return None
-
-@staticmethod
-def get_job(job_id: str) -> Optional[Dict[str, Any]]:
-    """Get a job by ID with proper datetime conversion"""
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM jobs WHERE id = ?', (job_id,))
-        row = cursor.fetchone()
-        
-        if row:
-            return {
-                'id': row['id'],
-                'filename': row['filename'],
-                'filepath': row['filepath'],
-                'status': row['status'],
-                'created_at': JobManager._parse_datetime(row['created_at']),
-                'completed_at': JobManager._parse_datetime(row['completed_at']),
-                'entity_column': row['entity_column'],
-                'type_column': row['type_column'],
-                'context_columns': json.loads(row['context_columns'] or '[]'),
-                'data_sources': json.loads(row['data_sources'] or '[]'),
-                'confidence_threshold': row['confidence_threshold'],
-                'progress': row['progress'],
-                'total_entities': row['total_entities'],
-                'successful_matches': row['successful_matches'],
-                'error_message': row['error_message'],
-                'settings': json.loads(row['settings'] or '{}')
-            }
-        return None
-
-@staticmethod
-def get_all_jobs() -> List[Dict[str, Any]]:
-    """Get all jobs ordered by creation date with proper datetime conversion"""
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM jobs ORDER BY created_at DESC')
-        rows = cursor.fetchall()
-        
-        jobs = []
-        for row in rows:
-            jobs.append({
-                'id': row['id'],
-                'filename': row['filename'],
-                'status': row['status'],
-                'created_at': JobManager._parse_datetime(row['created_at']),
-                'progress': row['progress'],
-                'total_entities': row['total_entities'],
-                'successful_matches': row['successful_matches']
-            })
-        
-        return jobs
-
 
 class ResultsManager:
     """
