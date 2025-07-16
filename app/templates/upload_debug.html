@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Upload Test</title>
+    <style>
+        body { 
+            font-family: 'Courier New', monospace; 
+            margin: 40px; 
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border: 2px solid #333;
+            padding: 30px;
+            max-width: 600px;
+            box-shadow: 4px 4px 0px #333;
+        }
+        h1 { 
+            color: #333; 
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            padding: 15px;
+            background: #fafafa;
+        }
+        label { 
+            display: block; 
+            font-weight: bold; 
+            margin-bottom: 5px;
+            color: #333;
+        }
+        input, select { 
+            width: 100%; 
+            padding: 10px; 
+            margin: 5px 0;
+            border: 2px solid #333;
+            font-family: 'Courier New', monospace;
+        }
+        button { 
+            background: #007cba; 
+            color: white; 
+            padding: 15px 30px; 
+            border: none;
+            border: 2px solid #333;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #005a8a;
+        }
+        .debug-info {
+            background: #e8f4f8;
+            border: 1px solid #007cba;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 12px;
+        }
+        .checkbox-group {
+            display: flex;
+            gap: 20px;
+            margin: 10px 0;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .pre-filled {
+            background: #e8f8e8;
+            border-color: #4a9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 DEBUG: Metadata Upload Test</h1>
+        
+        <div class="debug-info">
+            <strong>DEBUG MODE:</strong> This form has the correct settings pre-filled for your test_entities.csv file.
+            <br><strong>Expected:</strong> Should detect 25 entities (Shakespeare, Einstein, etc.)
+            <br><strong>Issue:</strong> Currently detecting 0 entities
+        </div>
+        
+        <form method="POST" action="/upload" enctype="multipart/form-data">
+            
+            <div class="form-group">
+                <label>📁 CSV File:</label>
+                <input type="file" name="file" accept=".csv" required>
+                <small>Upload your test_entities.csv file</small>
+            </div>
+            
+            <div class="form-group">
+                <label>🎯 Entity Column (CRITICAL):</label>
+                <input type="text" name="entity_column" value="creator_name" class="pre-filled" required>
+                <small>✅ Pre-filled with correct value for test CSV</small>
+            </div>
+            
+            <div class="form-group">
+                <label>🏷️ Type Column:</label>
+                <input type="text" name="type_column" value="entity_type" class="pre-filled">
+                <small>✅ Pre-filled with correct value for test CSV</small>
+            </div>
+            
+            <div class="form-group">
+                <label>📋 Context Columns:</label>
+                <input type="text" name="context_columns" value="location,date_created,subject_area" class="pre-filled">
+                <small>✅ Pre-filled with correct values for test CSV</small>
+            </div>
+            
+            <div class="form-group">
+                <label>🎯 Confidence Threshold:</label>
+                <select name="confidence_threshold">
+                    <option value="0.4">Low Precision (0.4) - More matches</option>
+                    <option value="0.6" selected>Medium Precision (0.6) - Balanced</option>
+                    <option value="0.8">High Precision (0.8) - Fewer, better matches</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>🌐 Authority Sources (ENABLE THESE!):</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" name="data_sources" value="wikidata" checked> 
+                        <span>✅ Wikidata</span>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" name="data_sources" value="viaf" checked> 
+                        <span>✅ VIAF</span>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" name="data_sources" value="getty"> 
+                        <span>⚠️ Getty (optional)</span>
+                    </div>
+                </div>
+                <small><strong>IMPORTANT:</strong> Make sure Wikidata and VIAF are checked!</small>
+            </div>
+            
+            <button type="submit">🚀 Process CSV (Debug Mode)</button>
+            <button type="button" onclick="showDebugInfo()">🔍 Show Debug Info</button>
+        </form>
+        
+        <div class="debug-info">
+            <strong>Expected Results for test_entities.csv:</strong>
+            <ul>
+                <li>✅ William Shakespeare → High confidence Wikidata match</li>
+                <li>✅ Leonardo da Vinci → High confidence Wikidata match</li>
+                <li>✅ Albert Einstein → High confidence Wikidata match</li>
+                <li>✅ Harvard University → High confidence Wikidata match</li>
+                <li>✅ Paris, London, New York → High confidence place matches</li>
+            </ul>
+            If you get 0 entities detected, check the Entity Column name!
+        </div>
+    </div>
+
+    <script>
+        function showDebugInfo() {
+            const entityColumn = document.querySelector('input[name="entity_column"]').value;
+            const typeColumn = document.querySelector('input[name="type_column"]').value;
+            const contextColumns = document.querySelector('input[name="context_columns"]').value;
+            const sources = Array.from(document.querySelectorAll('input[name="data_sources"]:checked')).map(cb => cb.value);
+            
+            alert(`DEBUG INFO:
+Entity Column: "${entityColumn}"
+Type Column: "${typeColumn}" 
+Context Columns: "${contextColumns}"
+Data Sources: ${sources.join(', ')}
+
+For test_entities.csv:
+- Should find 25 entities in "creator_name" column
+- Should use "entity_type" for classification
+- Should use location/date for context`);
+        }
+        
+        // Auto-check form on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const entityCol = document.querySelector('input[name="entity_column"]').value;
+            if (entityCol === 'creator_name') {
+                console.log('✅ Entity column correctly set to "creator_name"');
+            } else {
+                console.log('❌ Entity column issue - should be "creator_name"');
+            }
+        });
+    </script>
+</body>
+</html>

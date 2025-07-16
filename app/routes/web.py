@@ -14,12 +14,14 @@ from datetime import datetime
 from io import StringIO, BytesIO
 import threading
 import logging
+import time
 
 # Import our components
 try:
     from app.services.metadata_parser import MetadataParser
     from app.services.enhanced_reconciliation_engine import EnhancedReconciliationEngine
     from app.database import JobManager, ResultsManager
+
 except ImportError as e:
     print(f"Warning: Some imports failed: {e}")
     # Create dummy classes if imports fail
@@ -95,79 +97,158 @@ def validate_csv_file(file):
     
     return True, None
 
-
 # Replace the start_threaded_processing function in app/routes/web.py:
 
 def start_threaded_processing(job_id):
-    """Start processing in a separate thread if background jobs aren't available"""
+    """Start processing in a separate thread"""
     logger.info(f"🧵 Starting threaded processing for job {job_id}")
     
-    def process_in_thread():
-        try:
-            logger.info(f"🔄 Thread started for job {job_id}")
-            
-            # Update job status to processing
-            JobManager.update_job(job_id, {
-                'status': 'processing',
-                'progress': 0
-            })
-            logger.info(f"✅ Job {job_id} status updated to 'processing'")
-            
-            # Get job details
-            job = JobManager.get_job(job_id)
-            if not job:
-                logger.error(f"❌ Job {job_id} not found")
-                return
-            
-            logger.info(f"📄 Processing file: {job['filepath']}")
-            
-            # Simulate processing stages with progress updates
-            stages = [
-                (10, "Reading CSV file..."),
-                (25, "Extracting entities..."),
-                (50, "Querying Wikidata..."),
-                (75, "Querying VIAF..."),
-                (90, "Saving results..."),
-                (100, "Complete!")
-            ]
-            
-            for progress, message in stages:
-                logger.info(f"📊 Job {job_id}: {progress}% - {message}")
-                
-                JobManager.update_job(job_id, {
-                    'progress': progress,
-                    'status': 'processing'
-                })
-                
-                # Simulate work for each stage
-                import time
-                time.sleep(2)  # 2 seconds per stage = ~12 seconds total
-            
-            # Mark as completed
-            JobManager.update_job(job_id, {
-                'status': 'completed',
-                'progress': 100,
-                'total_entities': 10,  # Simulate some results
-                'successful_matches': 7,
-                'completed_at': datetime.now().isoformat()
-            })
-            
-            logger.info(f"🎉 Job {job_id} completed successfully!")
-            
-        except Exception as e:
-            logger.error(f"❌ Error in threaded processing for job {job_id}: {e}")
-            JobManager.update_job(job_id, {
-                'status': 'failed',
-                'error_message': str(e),
-                'completed_at': datetime.now().isoformat()
-            })
+    thread = threading.Thread(
+        target=process_job_threaded,
+        args=(job_id,),
+        name=f"ProcessJob-{job_id}",
+        daemon=True
+    )
+    thread.start()
     
+    JobManager.update_job(job_id, {'status': 'processing'})
+    logger.info(f"✅ Thread {thread.name} started successfully")
     # Start the thread
-    thread = threading.Thread(target=process_in_thread, name=f"ProcessJob-{job_id}")
+    thread = threading.Thread(target=process_job_threaded, name=f"ProcessJob-{job_id}")
     thread.daemon = True
     thread.start()
     
     logger.info(f"✅ Thread {thread.name} started successfully")
+
+def process_job_threaded(job_id):
+    """
+    FIXED: Actually process a reconciliation job in a thread.
+    This replaces the stub implementation with real processing.
+    """
+    try:
+        logger.info(f"🔄 Thread started for job {job_id}")
+        
+        # Helper function to update progress
+        def update_progress(percent, message):
+            JobManager.update_job(job_id, {
+                'progress': percent,
+                'status': 'processing'
+            })
+            logger.info(f"📊 Job {job_id}: {percent}% - {message}")
+        
+        # Step 1: Get job details
+        job = JobManager.get_job(job_id)
+        if not job:
+            logger.error(f"❌ Job {job_id} not found")
+            return
+        
+        update_progress(5, "Initializing processing...")
+        
+        # Step 2: Read the CSV file
+        update_progress(10, "Reading CSV file...")
+        logger.info(f"📄 Processing file: {job['filepath']}")
+        
+        try:
+            df = pd.read_csv(job['filepath'])
+            logger.info(f"✅ CSV loaded: {df.shape[0]} rows, {df.shape[1]} columns")
+        except Exception as e:
+            raise Exception(f"Failed to read CSV: {e}")
+        
+        # Step 3: Initialize reconciliation engine
+        update_progress(15, "Initializing reconciliation engine...")
+        try:
+            engine = EnhancedReconciliationEngine()
+            logger.info("✅ Reconciliation engine initialized")
+        except Exception as e:
+            raise Exception(f"Failed to initialize reconciliation engine: {e}")
+        
+        # Step 4: Extract entities from CSV
+        update_progress(25, "Extracting entities...")
+        try:
+            entities = engine.create_entities_from_dataframe(
+                df, 
+                entity_column=job['entity_column'],
+                type_column=job.get('type_column'),
+                context_columns=job.get('context_columns', [])
+            )
+            
+            total_entities = len(entities)
+            logger.info(f"🎯 Found {total_entities} entities to reconcile")
+            
+            if total_entities == 0:
+                raise Exception("No entities found in CSV. Check your column settings.")
+            
+            # Update job with entity count
+            JobManager.update_job(job_id, {'total_entities': total_entities})
+            
+        except Exception as e:
+            raise Exception(f"Failed to extract entities: {e}")
+        
+        # Step 5: Process entities in batches
+        update_progress(35, f"Processing {total_entities} entities...")
+        
+        all_results = []
+        batch_size = min(10, max(1, total_entities // 10))  # Adaptive batch size
+        
+        for i in range(0, len(entities), batch_size):
+            batch_start = i
+            batch_end = min(i + batch_size, len(entities))
+            batch = entities[batch_start:batch_end]
+            
+            # Update progress for this batch
+            batch_progress = 35 + int((batch_start / total_entities) * 50)
+            update_progress(
+                batch_progress, 
+                f"Processing entities {batch_start + 1}-{batch_end} of {total_entities}..."
+            )
+            
+            try:
+                # Process this batch
+                batch_results = engine.process_entities(batch)
+                all_results.extend(batch_results)
+                
+                # Log progress
+                matches_found = sum(1 for r in batch_results if r.best_match)
+                logger.info(f"📊 Batch {i//batch_size + 1}: {matches_found}/{len(batch)} matches found")
+                
+            except Exception as e:
+                logger.error(f"⚠️  Error processing batch {i//batch_size + 1}: {e}")
+                # Continue with other batches instead of failing completely
+                continue
+        
+        # Step 6: Save results to database
+        update_progress(90, "Saving results to database...")
+        try:
+            saved_count = ResultsManager.save_results(job_id, all_results)
+            logger.info(f"💾 Saved {saved_count} results to database")
+        except Exception as e:
+            raise Exception(f"Failed to save results: {e}")
+        
+        # Step 7: Calculate final statistics
+        update_progress(95, "Calculating final statistics...")
+        successful_matches = sum(1 for r in all_results if r.best_match)
+        
+        # Step 8: Mark job as completed
+        update_progress(100, "Reconciliation completed successfully!")
+        
+        JobManager.update_job(job_id, {
+            'status': 'completed',
+            'progress': 100,
+            'successful_matches': successful_matches,
+            'completed_at': time.time()
+        })
+        
+        logger.info(f"🎉 Job {job_id} completed successfully!")
+        logger.info(f"📊 Final stats: {successful_matches}/{total_entities} matches found")
+        
+    except Exception as e:
+        logger.error(f"❌ Job {job_id} failed: {e}")
+        JobManager.update_job(job_id, {
+            'status': 'failed',
+            'error_message': str(e)
+        })
+        import traceback
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
 
 
 def register_web_routes(app):
@@ -177,6 +258,11 @@ def register_web_routes(app):
     def index():
         """Home page - redirect to upload"""
         return redirect(url_for('upload'))
+    
+    @app.route('/upload_debug')
+    def upload_debug():
+        """Debug upload page with pre-filled correct settings"""
+        return render_template('upload_debug.html')
 
     @app.route('/upload', methods=['GET', 'POST'])
     def upload():
@@ -570,3 +656,5 @@ def register_web_routes(app):
         })
     
     return app
+
+    

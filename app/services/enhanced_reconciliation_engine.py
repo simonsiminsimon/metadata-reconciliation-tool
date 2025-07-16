@@ -217,7 +217,7 @@ class EnhancedReconciliationEngine:
         )
         
         # Cache the result
-        self.cache.put(entity.search_key, result)
+        self.cache.set(entity.search_key, result)
         
         # Update statistics
         self._stats['total_processed'] += 1
@@ -253,17 +253,22 @@ class EnhancedReconciliationEngine:
         return results
     
     # FIXED: Proper type annotation using pd.DataFrame instead of pd
-    def create_entities_from_dataframe(self, 
-                                     df: pd.DataFrame, 
-                                     entity_column: str,
-                                     type_column: Optional[str] = None, 
-                                     context_columns: Optional[List[str]] = None) -> List[Entity]:
-        """Create entities from DataFrame (compatible with existing interface)"""
+    def create_entities_from_dataframe(self, df: pd.DataFrame, entity_column: str, 
+                                 type_column: str = None, 
+                                 context_columns: List[str] = None) -> List[Entity]:
+        """Create entities from DataFrame"""
+        print(f"🔍 DEBUG: DataFrame shape: {df.shape}")
+        print(f"🔍 DEBUG: Columns: {list(df.columns)}")
+        print(f"🔍 DEBUG: Entity column: '{entity_column}'")
+        print(f"🔍 DEBUG: Entity column exists: {entity_column in df.columns}")
+        
         entities = []
         context_columns = context_columns or []
         
         for idx, row in df.iterrows():
             entity_name = str(row[entity_column]).strip()
+            print(f"🔍 DEBUG: Row {idx}: '{entity_name}' -> valid: {entity_name and entity_name.lower() not in ['nan', 'none', '']}")
+            
             if not entity_name or entity_name.lower() in ['nan', 'none', '']:
                 continue
             
