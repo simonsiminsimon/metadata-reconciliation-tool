@@ -1,0 +1,26 @@
+creator_name,entity_type,location,date_created,subject_area
+William Shakespeare,person,England,1564-1616,Literature
+Leonardo da Vinci,person,Italy,1452-1519,Art
+Metropolitan Museum of Art,organization,New York,1870,Museum
+University of Oxford,organization,England,1096,Education
+Library of Congress,organization,Washington DC,1800,Library
+Paris,place,France,,Geography
+London,place,England,,Geography
+New York City,place,United States,,Geography
+Albert Einstein,person,Germany,1879-1955,Physics
+Marie Curie,person,Poland,1867-1934,Chemistry
+Harvard University,organization,Massachusetts,1636,Education
+Smithsonian Institution,organization,Washington DC,1846,Museum
+Vincent van Gogh,person,Netherlands,1853-1890,Art
+Pablo Picasso,person,Spain,1881-1973,Art
+British Museum,organization,London,1753,Museum
+Stanford University,organization,California,1885,Education
+Charles Darwin,person,England,1809-1882,Biology
+Isaac Newton,person,England,1643-1727,Physics
+Rome,place,Italy,,Geography
+Tokyo,place,Japan,,Geography
+Chicago,place,United States,,Geography
+National Gallery,organization,London,1824,Museum
+Yale University,organization,Connecticut,1701,Education
+Benjamin Franklin,person,United States,1706-1790,Politics
+John F. Kennedy,person,United States,1917-1963,Politics

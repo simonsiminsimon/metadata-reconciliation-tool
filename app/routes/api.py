@@ -257,13 +257,73 @@ def register_api_routes(app):
         except Exception as e:
             logger.error(f"Failed to get statistics: {e}")
             return jsonify({'error': str(e)}), 500
-# Add these endpoints to your app/routes/api.py file inside the register_api_routes function:
 
-    # URL compatibility - JavaScript uses plural 'jobs', but we defined singular 'job'
     @app.route('/api/jobs/<job_id>/status')
-    def jobs_status_compat(job_id):
-        """Job status endpoint with plural URL for JavaScript compatibility"""
-        return job_status(job_id)
+    def get_job_status(job_id):
+        """Get current status of a processing job"""
+        try:
+            job = JobManager.get_job(job_id)
+            if not job:
+                return jsonify({'error': 'Job not found'}), 404
+            
+            # Get actual match count from database for completed jobs
+            if job['status'] == 'completed':
+                try:
+                    # Query database for actual successful matches count
+                    with get_db_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            SELECT COUNT(*) as total_entities,
+                                COUNT(CASE WHEN EXISTS(
+                                    SELECT 1 FROM matches 
+                                    WHERE matches.result_id = results.id 
+                                    AND matches.match_score > 0.5
+                                ) THEN 1 END) as successful_matches
+                            FROM results 
+                            WHERE job_id = ?
+                        """, (job_id,))
+                        
+                        result = cursor.fetchone()
+                        actual_total = result['total_entities'] if result else 0
+                        actual_matches = result['successful_matches'] if result else 0
+                        
+                        # Update job record if counts don't match
+                        if actual_matches != job.get('successful_matches', 0):
+                            logger.info(f"🔄 Updating job {job_id}: {actual_matches} matches (was {job.get('successful_matches', 0)})")
+                            JobManager.update_job(job_id, {
+                                'successful_matches': actual_matches,
+                                'total_entities': actual_total
+                            })
+                            # Refresh job data
+                            job = JobManager.get_job(job_id)
+                            
+                except Exception as e:
+                    logger.error(f"Error getting match counts: {e}")
+                    # Fall back to stored values
+                    actual_matches = job.get('successful_matches', 0)
+                    actual_total = job.get('total_entities', 0)
+            else:
+                actual_matches = job.get('successful_matches', 0)
+                actual_total = job.get('total_entities', 0)
+            
+            response_data = {
+                'status': job['status'],
+                'progress': job.get('progress', 0),
+                'message': f"Processing {actual_total} entities..." if job['status'] == 'processing' else 'Ready',
+                'created_at': job.get('created_at'),
+                'metrics': {
+                    'total_entities': actual_total,
+                    'successful_matches': actual_matches,  # This will fix the TOTAL_MATCHES log
+                    'processed_entities': actual_total if job['status'] == 'completed' else job.get('progress', 0) * actual_total // 100,
+                    'match_rate': (actual_matches / actual_total * 100) if actual_total > 0 else 0
+                }
+            }
+            
+            return jsonify(response_data)
+            
+        except Exception as e:
+            logger.error(f"Error getting job status: {e}")
+            return jsonify({'error': str(e)}), 500
     
     @app.route('/api/jobs/<job_id>/cancel', methods=['POST'])
     def jobs_cancel_compat(job_id):

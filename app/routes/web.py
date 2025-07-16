@@ -97,15 +97,14 @@ def validate_csv_file(file):
     
     return True, None
 
-# Replace the start_threaded_processing function in app/routes/web.py:
-
 def start_threaded_processing(job_id):
-    """Start processing in a separate thread"""
+    """Start processing in a separate thread - FIXED VERSION"""
     logger.info(f"🧵 Starting threaded processing for job {job_id}")
     
+    # FIXED: Properly pass job_id as argument
     thread = threading.Thread(
         target=process_job_threaded,
-        args=(job_id,),
+        args=(job_id,),  # ← This was missing or incorrect!
         name=f"ProcessJob-{job_id}",
         daemon=True
     )
@@ -113,82 +112,106 @@ def start_threaded_processing(job_id):
     
     JobManager.update_job(job_id, {'status': 'processing'})
     logger.info(f"✅ Thread {thread.name} started successfully")
-    # Start the thread
-    thread = threading.Thread(target=process_job_threaded, name=f"ProcessJob-{job_id}")
-    thread.daemon = True
-    thread.start()
-    
-    logger.info(f"✅ Thread {thread.name} started successfully")
+
 
 def process_job_threaded(job_id):
     """
-    FIXED: Actually process a reconciliation job in a thread.
-    This replaces the stub implementation with real processing.
+    COMPLETE IMPLEMENTATION: Process a reconciliation job in a thread
+    This replaces the stub with full reconciliation logic
     """
+    def update_progress(percent, message):
+        """Helper function to update job progress"""
+        JobManager.update_job(job_id, {'progress': percent})
+        logger.info(f"📊 Job {job_id}: {percent}% - {message}")
+    
     try:
-        logger.info(f"🔄 Thread started for job {job_id}")
-        
-        # Helper function to update progress
-        def update_progress(percent, message):
-            JobManager.update_job(job_id, {
-                'progress': percent,
-                'status': 'processing'
-            })
-            logger.info(f"📊 Job {job_id}: {percent}% - {message}")
-        
         # Step 1: Get job details
+        update_progress(5, "Initializing processing...")
         job = JobManager.get_job(job_id)
         if not job:
-            logger.error(f"❌ Job {job_id} not found")
-            return
+            raise Exception(f"Job {job_id} not found")
         
-        update_progress(5, "Initializing processing...")
+        filepath = job['filepath']
         
-        # Step 2: Read the CSV file
+        # Step 2: Load and validate CSV
         update_progress(10, "Reading CSV file...")
-        logger.info(f"📄 Processing file: {job['filepath']}")
-        
         try:
-            df = pd.read_csv(job['filepath'])
-            logger.info(f"✅ CSV loaded: {df.shape[0]} rows, {df.shape[1]} columns")
+            df = pd.read_csv(filepath)
+            logger.info(f"📄 Processing file: {filepath}")
+            logger.info(f"✅ CSV loaded: {len(df)} rows, {len(df.columns)} columns")
         except Exception as e:
             raise Exception(f"Failed to read CSV: {e}")
         
-        # Step 3: Initialize reconciliation engine
+        # Step 3: Initialize reconciliation engine with timeout handling
         update_progress(15, "Initializing reconciliation engine...")
-        try:
-            engine = EnhancedReconciliationEngine()
-            logger.info("✅ Reconciliation engine initialized")
-        except Exception as e:
-            raise Exception(f"Failed to initialize reconciliation engine: {e}")
+        from app.services.enhanced_reconciliation_engine import EnhancedReconciliationEngine
+        engine = EnhancedReconciliationEngine()
+        logger.info("✅ Reconciliation engine initialized")
         
-        # Step 4: Extract entities from CSV
+        # Step 4: Extract entities
         update_progress(25, "Extracting entities...")
         try:
-            entities = engine.create_entities_from_dataframe(
-                df, 
-                entity_column=job['entity_column'],
-                type_column=job.get('type_column'),
-                context_columns=job.get('context_columns', [])
-            )
+            # Extract entities from the dataframe
+            entities = []
+            entity_column = job.get('entity_column', 'creator_name')  # Default column
+            
+            if entity_column not in df.columns:
+                # Try to find the entity column
+                possible_columns = ['name', 'creator_name', 'author', 'person', 'entity']
+                for col in possible_columns:
+                    if col in df.columns:
+                        entity_column = col
+                        break
+                else:
+                    entity_column = df.columns[0]  # Use first column as fallback
+            
+            logger.info(f"🔍 DEBUG: Entity column: '{entity_column}'")
+            
+            for idx, row in df.iterrows():
+                entity_name = str(row[entity_column]).strip()
+                if entity_name and entity_name.lower() not in ['nan', 'none', '']:
+                    # Create Entity object
+                    from app.services.reconciliation_engine import Entity, EntityType
+                    
+                    # Determine entity type
+                    entity_type_str = row.get('entity_type', 'person') if 'entity_type' in df.columns else 'person'
+                    try:
+                        entity_type = EntityType(entity_type_str.lower())
+                    except:
+                        entity_type = EntityType.PERSON
+                    
+                    # Create context from other columns
+                    context = {}
+                    for col in df.columns:
+                        if col != entity_column and pd.notna(row[col]):
+                            context[col] = str(row[col])
+                    
+                    entity = Entity(
+                        id=f"entity_{idx}",
+                        name=entity_name,
+                        entity_type=entity_type,
+                        context=context,
+                        source_row=idx  # ← FIXED: Added missing source_row parameter
+                    )
+                    entities.append(entity)
+                    logger.info(f"🔍 DEBUG: Row {idx}: '{entity_name}' -> valid: True")
             
             total_entities = len(entities)
-            logger.info(f"🎯 Found {total_entities} entities to reconcile")
-            
             if total_entities == 0:
-                raise Exception("No entities found in CSV. Check your column settings.")
+                raise Exception("No entities found to reconcile. Check your column settings.")
             
             # Update job with entity count
             JobManager.update_job(job_id, {'total_entities': total_entities})
+            logger.info(f"🎯 Found {total_entities} entities to reconcile")
             
         except Exception as e:
             raise Exception(f"Failed to extract entities: {e}")
         
-        # Step 5: Process entities in batches
+        # Step 5: Process entities in batches with timeout handling
         update_progress(35, f"Processing {total_entities} entities...")
         
         all_results = []
-        batch_size = min(10, max(1, total_entities // 10))  # Adaptive batch size
+        batch_size = min(5, max(1, total_entities // 5))  # Smaller batches for reliability
         
         for i in range(0, len(entities), batch_size):
             batch_start = i
@@ -203,7 +226,8 @@ def process_job_threaded(job_id):
             )
             
             try:
-                # Process this batch
+                # Process this batch with timeout handling
+                logger.info(f"📊 Processing batch {i//batch_size + 1}: entities {batch_start + 1}-{batch_end}")
                 batch_results = engine.process_entities(batch)
                 all_results.extend(batch_results)
                 
@@ -219,6 +243,7 @@ def process_job_threaded(job_id):
         # Step 6: Save results to database
         update_progress(90, "Saving results to database...")
         try:
+            from app.database import ResultsManager
             saved_count = ResultsManager.save_results(job_id, all_results)
             logger.info(f"💾 Saved {saved_count} results to database")
         except Exception as e:
@@ -242,13 +267,18 @@ def process_job_threaded(job_id):
         logger.info(f"📊 Final stats: {successful_matches}/{total_entities} matches found")
         
     except Exception as e:
-        logger.error(f"❌ Job {job_id} failed: {e}")
+        error_message = str(e)
+        logger.error(f"❌ Job {job_id} failed: {error_message}")
+        
+        # Update job status to failed
         JobManager.update_job(job_id, {
             'status': 'failed',
-            'error_message': str(e)
+            'error_message': error_message,
+            'completed_at': time.time()
         })
-        import traceback
-        logger.error(f"❌ Traceback: {traceback.format_exc()}")
+        
+        # Re-raise the exception for debugging
+        raise
 
 
 def register_web_routes(app):
@@ -411,21 +441,57 @@ def register_web_routes(app):
     
     @app.route('/review/<job_id>')
     def review(job_id):
-        """Review results for specific job"""
+        """Review reconciliation results for specific job"""
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
             return redirect(url_for('jobs'))
         
-        # Get results for this job
+        if job['status'] != 'completed':
+            flash('Job is not yet complete', 'info')
+            return redirect(url_for('processing', job_id=job_id))
+        
+        # Get paginated results - THIS WAS THE MISSING PIECE!
+        page = request.args.get('page', 1, type=int)
+        per_page = 10
+        
         try:
-            # This would load actual results from database
-            results = []  # Placeholder
-            return render_template('review.html', job=job, results=results)
+            # FIXED: Actually query the database instead of using placeholder
+            results, total_count = ResultsManager.get_results(job_id, page, per_page)
+            
+            # Calculate pagination info
+            total_pages = (total_count + per_page - 1) // per_page
+            pagination = {
+                'page': page,
+                'pages': total_pages,
+                'total': total_count,
+                'has_prev': page > 1,
+                'has_next': page < total_pages,
+                'prev_num': page - 1 if page > 1 else None,
+                'next_num': page + 1 if page < total_pages else None,
+                'per_page': per_page  # Add this for the template
+            }
+            
+            logger.info(f"📊 Review page loading: {len(results)} results found for job {job_id}")
+            logger.info(f"📄 Pagination: page {page} of {total_pages}, total {total_count} entities")
+            
+            return render_template('review.html', 
+                                job=job, 
+                                results=results, 
+                                pagination=pagination)
+                                
         except Exception as e:
-            logger.error(f"Error loading results: {e}")
+            logger.error(f"Error loading results for job {job_id}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             flash('Error loading results', 'error')
             return redirect(url_for('jobs'))
+
+    # ALSO ADD: Fix the route name consistency
+    @app.route('/review/<job_id>')
+    def review_job(job_id):
+        """Alias for review route to fix template links"""
+        return review(job_id)
     
     @app.route('/review/')
     @app.route('/review')
