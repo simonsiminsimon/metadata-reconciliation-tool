@@ -1,13 +1,14 @@
-# File: app/routes/api.py
+# File: app/routes/api.py (COMPLETE FIXED VERSION)
 """
 API routes for the Metadata Reconciliation System.
-Provides JSON endpoints for frontend interactions and system monitoring.
+FIXED: Complete implementation of all job management endpoints.
 """
 
 from flask import jsonify, request
 import pandas as pd
 from io import StringIO
 import logging
+import os
 
 from app.database import JobManager, ResultsManager
 
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Check background job availability
 try:
-    from app.background_jobs import celery_app
+    from app.background_jobs import celery_app, process_reconciliation_job
     BACKGROUND_JOBS_AVAILABLE = True
 except ImportError:
     BACKGROUND_JOBS_AVAILABLE = False
@@ -27,189 +28,137 @@ def register_api_routes(app):
     
     @app.route('/api/system_status')
     def system_status():
-        """
-        Get current system status.
-        Returns information about queue, workers, and system health.
-        """
-        status = {
-            'status': 'operational',
-            'background_jobs_available': BACKGROUND_JOBS_AVAILABLE,
-            'features': {
-                'background_processing': BACKGROUND_JOBS_AVAILABLE,
-                'real_time_progress': BACKGROUND_JOBS_AVAILABLE,
-                'job_cancellation': BACKGROUND_JOBS_AVAILABLE,
-                'database_storage': True,
-                'multiple_export_formats': True,
-                'threaded_fallback': True
-            }
-        }
-        
-        # Add queue information if Celery is available
-        if BACKGROUND_JOBS_AVAILABLE:
-            try:
-                # Get Celery stats
-                inspector = celery_app.control.inspect()
-                stats = inspector.stats()
-                active = inspector.active()
-                
-                # Count total active tasks
-                active_count = 0
-                if active:
-                    for worker, tasks in active.items():
-                        active_count += len(tasks)
-                
-                status['queue_count'] = active_count
-                status['workers_online'] = len(stats) if stats else 0
-                
-            except Exception as e:
-                logger.error(f"Failed to get Celery stats: {e}")
-                status['queue_count'] = 0
-                status['workers_online'] = 0
-        else:
-            status['queue_count'] = 0
-            status['workers_online'] = 0
-        
-        return jsonify(status)
-    
-    @app.route('/api/job/<job_id>/status')
-    def job_status(job_id):
-        """Get detailed status for a specific job"""
-        job = JobManager.get_job(job_id)
-        if not job:
-            return jsonify({'error': 'Job not found'}), 404
-        
-        # Build response
-        response = {
-            'job_id': job_id,
-            'status': job['status'],
-            'progress': job['progress'],
-            'filename': job['filename'],
-            'total_entities': job.get('total_entities', 0),
-            'successful_matches': job.get('successful_matches', 0),
-            'created_at': job.get('created_at'),
-            'completed_at': job.get('completed_at'),
-            'error_message': job.get('error_message')
-        }
-        
-        # Add human-readable status message
-        response['message'] = get_status_message(job)
-        
-        # Add match rate if applicable
-        if job['total_entities'] > 0 and job['status'] == 'completed':
-            match_rate = (job['successful_matches'] / job['total_entities']) * 100
-            response['match_rate'] = round(match_rate, 1)
-        
-        return jsonify(response)
-    
-    @app.route('/api/preview_columns', methods=['POST'])
-    def preview_columns():
-        """
-        Preview column names from uploaded CSV.
-        Helps users select the correct column for entity reconciliation.
-        """
+        """Get current system status"""
         try:
-            if 'file' not in request.files:
-                return jsonify({'error': 'No file provided'}), 400
-            
-            file = request.files['file']
-            
-            # Read first few lines to get columns
-            content = file.read(1024).decode('utf-8')  # Read first 1KB
-            lines = content.split('\n')
-            
-            if not lines:
-                return jsonify({'error': 'Empty file'}), 400
-            
-            # Parse header
-            header = lines[0]
-            columns = [col.strip() for col in header.split(',')]
-            
-            # Get sample data if available
-            sample_data = []
-            if len(lines) > 1:
-                for line in lines[1:4]:  # Get up to 3 sample rows
-                    if line.strip():
-                        values = [val.strip() for val in line.split(',')]
-                        sample_data.append(dict(zip(columns, values)))
+            jobs = JobManager.get_all_jobs()
+            processing_count = len([j for j in jobs if j['status'] == 'processing'])
             
             return jsonify({
-                'success': True,
-                'columns': columns,
-                'sample_data': sample_data,
-                'column_count': len(columns)
+                'status': 'operational',
+                'background_jobs_available': BACKGROUND_JOBS_AVAILABLE,
+                'total_jobs': len(jobs),
+                'processing_jobs': processing_count,
+                'queue_count': processing_count,
+                'timestamp': pd.Timestamp.now().isoformat()
             })
-            
         except Exception as e:
-            logger.error(f"Column preview failed: {e}")
+            logger.error(f"System status check failed: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+    # FIXED: Complete job deletion endpoint
+    @app.route('/api/jobs/<job_id>', methods=['DELETE'])
+    def delete_job(job_id):
+        """Delete a job and its associated files"""
+        try:
+            job = JobManager.get_job(job_id)
+            if not job:
+                return jsonify({'error': 'Job not found'}), 404
+            
+            # Cancel if running
+            if job['status'] == 'processing' and BACKGROUND_JOBS_AVAILABLE:
+                try:
+                    if job.get('task_id'):
+                        celery_app.control.revoke(job['task_id'], terminate=True)
+                except Exception as e:
+                    logger.warning(f"Could not cancel Celery task: {e}")
+            
+            # Delete associated files
+            try:
+                if job.get('filepath') and os.path.exists(job['filepath']):
+                    os.remove(job['filepath'])
+                    logger.info(f"Deleted file: {job['filepath']}")
+            except Exception as e:
+                logger.warning(f"Could not delete file: {e}")
+            
+            # Delete from database
+            success = JobManager.delete_job(job_id)
+            if success:
+                logger.info(f"Job {job_id} deleted successfully")
+                return jsonify({'success': True, 'message': 'Job deleted successfully'})
+            else:
+                return jsonify({'error': 'Failed to delete job from database'}), 500
+                
+        except Exception as e:
+            logger.error(f"Error deleting job {job_id}: {e}")
             return jsonify({'error': str(e)}), 500
     
-    @app.route('/api/job/<job_id>/cancel', methods=['POST'])
-    def cancel_job(job_id):
-        """Cancel a running job"""
-        job = JobManager.get_job(job_id)
-        if not job:
-            return jsonify({'error': 'Job not found'}), 404
-        
-        if job['status'] not in ['queued', 'processing']:
-            return jsonify({'error': 'Job cannot be cancelled in current state'}), 400
-        
+    # FIXED: Complete job start endpoint
+    @app.route('/api/jobs/<job_id>/start', methods=['POST'])
+    def start_job(job_id):
+        """Start or resume a job"""
         try:
+            job = JobManager.get_job(job_id)
+            if not job:
+                return jsonify({'error': 'Job not found'}), 404
+            
+            if job['status'] not in ['uploaded', 'paused', 'failed']:
+                return jsonify({
+                    'error': f'Job cannot be started. Current status: {job["status"]}'
+                }), 400
+            
             # Update job status
             JobManager.update_job(job_id, {
-                'status': 'cancelled',
-                'error_message': 'Cancelled by user'
+                'status': 'queued',
+                'error_message': None,
+                'progress': 0
             })
             
-            # If using Celery, try to revoke the task
-            if BACKGROUND_JOBS_AVAILABLE and job.get('task_id'):
-                try:
-                    celery_app.control.revoke(job['task_id'], terminate=True)
-                except Exception as e:
-                    logger.error(f"Failed to revoke Celery task: {e}")
+            # Start processing
+            if BACKGROUND_JOBS_AVAILABLE:
+                # Use Celery for background processing
+                task = process_reconciliation_job.delay(job_id)
+                JobManager.update_job(job_id, {
+                    'task_id': task.id,
+                    'status': 'processing'
+                })
+                logger.info(f"Job {job_id} started with Celery task {task.id}")
+            else:
+                # Use threaded processing
+                from app.routes.web import start_threaded_processing
+                start_threaded_processing(job_id)
+                logger.info(f"Job {job_id} started with threaded processing")
             
-            return jsonify({'success': True, 'message': 'Job cancelled'})
+            return jsonify({'success': True, 'message': 'Job started successfully'})
             
         except Exception as e:
-            logger.error(f"Failed to cancel job {job_id}: {e}")
+            logger.error(f"Error starting job {job_id}: {e}")
+            JobManager.update_job(job_id, {'status': 'failed', 'error_message': str(e)})
             return jsonify({'error': str(e)}), 500
     
-    @app.route('/api/job/<job_id>/approve_match', methods=['POST'])
-    def approve_match(job_id):
-        """
-        Approve or reject a specific match.
-        This allows users to provide feedback on reconciliation results.
-        """
+    # FIXED: Job status endpoint
+    @app.route('/api/jobs/<job_id>/status')
+    def get_job_status(job_id):
+        """Get detailed status of a specific job"""
         try:
-            data = request.get_json()
-            if not data:
-                return jsonify({'error': 'No data provided'}), 400
+            job = JobManager.get_job(job_id)
+            if not job:
+                return jsonify({'error': 'Job not found'}), 404
             
-            entity_id = data.get('entity_id')
-            match_id = data.get('match_id')
-            approved = data.get('approved', True)
-            
-            if not entity_id or not match_id:
-                return jsonify({'error': 'Missing entity_id or match_id'}), 400
-            
-            # Store the feedback (you could extend this to save to database)
-            feedback_data = {
+            # Get additional status info for processing jobs
+            status_info = {
                 'job_id': job_id,
-                'entity_id': entity_id,
-                'match_id': match_id,
-                'approved': approved,
-                'timestamp': pd.Timestamp.now().isoformat()
+                'status': job['status'],
+                'progress': job.get('progress', 0),
+                'total_entities': job.get('total_entities', 0),
+                'successful_matches': job.get('successful_matches', 0),
+                'error_message': job.get('error_message'),
+                'created_at': job.get('created_at'),
+                'message': get_status_message(job)
             }
             
-            # Here you could save this feedback to improve future matching
-            logger.info(f"Match feedback for job {job_id}: {feedback_data}")
+            # Add Celery task info if available
+            if BACKGROUND_JOBS_AVAILABLE and job.get('task_id'):
+                try:
+                    from app.background_jobs import get_task_status
+                    task_status = get_task_status(job['task_id'])
+                    status_info['task_status'] = task_status
+                except Exception as e:
+                    logger.warning(f"Could not get task status: {e}")
             
-            return jsonify({
-                'success': True,
-                'message': 'Feedback recorded'
-            })
+            return jsonify(status_info)
             
         except Exception as e:
-            logger.error(f"Failed to record match feedback: {e}")
+            logger.error(f"Error getting job status {job_id}: {e}")
             return jsonify({'error': str(e)}), 500
     
     @app.route('/api/stats')
@@ -326,123 +275,155 @@ def register_api_routes(app):
             return jsonify({'error': str(e)}), 500
     
     @app.route('/api/jobs/<job_id>/cancel', methods=['POST'])
-    def jobs_cancel_compat(job_id):
-        """Job cancel endpoint with plural URL for JavaScript compatibility"""
-        return cancel_job(job_id)
-    
-    # NEW ENDPOINTS that were missing:
-    
-    @app.route('/api/jobs/<job_id>/pause', methods=['POST'])
-    def pause_job(job_id):
-        """Pause a running job"""
-        job = JobManager.get_job(job_id)
-        if not job:
-            return jsonify({'error': 'Job not found'}), 404
-        
-        if job['status'] != 'processing':
-            return jsonify({'error': 'Job is not currently processing'}), 400
-        
+    def cancel_job(job_id):
+        """Cancel a running job"""
         try:
+            job = JobManager.get_job(job_id)
+            if not job:
+                return jsonify({'error': 'Job not found'}), 404
+            
+            if job['status'] not in ['queued', 'processing']:
+                return jsonify({
+                    'error': f'Job cannot be cancelled. Current status: {job["status"]}'
+                }), 400
+            
+            # Cancel Celery task if applicable
+            if BACKGROUND_JOBS_AVAILABLE and job.get('task_id'):
+                try:
+                    celery_app.control.revoke(job['task_id'], terminate=True)
+                    logger.info(f"Cancelled Celery task {job['task_id']}")
+                except Exception as e:
+                    logger.warning(f"Could not cancel Celery task: {e}")
+            
+            # Update job status
             JobManager.update_job(job_id, {
-                'status': 'paused',
-                'error_message': 'Paused by user'
+                'status': 'cancelled',
+                'error_message': 'Cancelled by user'
             })
             
-            logger.info(f"Job {job_id} paused by user")
-            return jsonify({'success': True, 'message': 'Job paused'})
+            return jsonify({'success': True, 'message': 'Job cancelled successfully'})
             
         except Exception as e:
-            logger.error(f"Failed to pause job {job_id}: {e}")
+            logger.error(f"Error cancelling job {job_id}: {e}")
             return jsonify({'error': str(e)}), 500
     
-    @app.route('/api/jobs/<job_id>/start', methods=['POST'])
-    def start_job_api(job_id):
-        """Start or resume a job"""
-        job = JobManager.get_job(job_id)
-        if not job:
-            return jsonify({'error': 'Job not found'}), 404
-        
-        if job['status'] not in ['uploaded', 'paused', 'failed']:
-            return jsonify({'error': f'Job cannot be started. Current status: {job["status"]}'}, 400)
-        
+    # FIXED: Job retry endpoint
+    @app.route('/api/jobs/<job_id>/retry', methods=['POST'])
+    def retry_job(job_id):
+        """Retry a failed job"""
         try:
-            # Update job status and start processing
+            job = JobManager.get_job(job_id)
+            if not job:
+                return jsonify({'error': 'Job not found'}), 404
+            
+            if job['status'] not in ['failed', 'cancelled']:
+                return jsonify({
+                    'error': f'Job cannot be retried. Current status: {job["status"]}'
+                }), 400
+            
+            # Reset job to initial state
             JobManager.update_job(job_id, {
-                'status': 'processing',
-                'error_message': None
+                'status': 'uploaded',
+                'progress': 0,
+                'error_message': None,
+                'task_id': None,
+                'total_entities': 0,
+                'successful_matches': 0
             })
             
-            # Import here to avoid circular imports
-            from app.routes.web import start_threaded_processing
-            start_threaded_processing(job_id)
-            
-            logger.info(f"Job {job_id} started by user")
-            return jsonify({'success': True, 'message': 'Job started'})
+            return jsonify({'success': True, 'message': 'Job reset for retry'})
             
         except Exception as e:
-            logger.error(f"Failed to start job {job_id}: {e}")
-            JobManager.update_job(job_id, {'status': 'failed', 'error_message': str(e)})
+            logger.error(f"Error retrying job {job_id}: {e}")
             return jsonify({'error': str(e)}), 500
     
+    # Job metrics endpoint
     @app.route('/api/jobs/metrics')
-    def jobs_metrics():
+    def get_jobs_metrics():
         """Get job metrics for dashboard"""
         try:
-            all_jobs = JobManager.get_all_jobs()
+            jobs = JobManager.get_all_jobs()
             
             metrics = {
-                'total': len(all_jobs),
-                'processing': len([j for j in all_jobs if j['status'] == 'processing']),
-                'completed': len([j for j in all_jobs if j['status'] == 'completed']),
-                'failed': len([j for j in all_jobs if j['status'] == 'failed']),
-                'queued': len([j for j in all_jobs if j['status'] in ['queued', 'uploaded']]),
-                'paused': len([j for j in all_jobs if j['status'] == 'paused'])
+                'total': len(jobs),
+                'processing': len([j for j in jobs if j['status'] == 'processing']),
+                'completed': len([j for j in jobs if j['status'] == 'completed']),
+                'failed': len([j for j in jobs if j['status'] == 'failed']),
+                'queued': len([j for j in jobs if j['status'] in ['queued', 'uploaded']]),
+                'cancelled': len([j for j in jobs if j['status'] == 'cancelled'])
             }
             
             return jsonify(metrics)
             
         except Exception as e:
-            logger.error(f"Failed to get job metrics: {e}")
+            logger.error(f"Error getting job metrics: {e}")
             return jsonify({'error': str(e)}), 500
     
-    @app.route('/api/jobs/<job_id>/progress')
-    def job_progress(job_id):
-        """Get progress for a specific job"""
-        job = JobManager.get_job(job_id)
-        if not job:
-            return jsonify({'error': 'Job not found'}), 404
-        
-        return jsonify({
-            'job_id': job_id,
-            'progress': job.get('progress', 0),
-            'status': job['status'],
-            'total_entities': job.get('total_entities', 0),
-            'successful_matches': job.get('successful_matches', 0),
-            'message': f"Processing {job.get('progress', 0)}% complete"
-        })
+    # CSV preview endpoint
+    @app.route('/api/preview_csv', methods=['POST'])
+    def preview_csv():
+        """Preview CSV columns and sample data"""
+        try:
+            if 'file' not in request.files:
+                return jsonify({'error': 'No file provided'}), 400
+            
+            file = request.files['file']
+            
+            # Read first few lines
+            content = file.read(2048).decode('utf-8', errors='ignore')
+            file.seek(0)  # Reset file pointer
+            
+            lines = content.split('\n')
+            if not lines:
+                return jsonify({'error': 'Empty file'}), 400
+            
+            # Parse header
+            header = lines[0].strip()
+            columns = [col.strip().strip('"\'') for col in header.split(',')]
+            
+            # Get sample data
+            sample_data = []
+            for line in lines[1:4]:  # Get up to 3 sample rows
+                if line.strip():
+                    values = [val.strip().strip('"\'') for val in line.split(',')]
+                    # Pad with empty strings if not enough values
+                    while len(values) < len(columns):
+                        values.append('')
+                    sample_data.append(dict(zip(columns, values[:len(columns)])))
+            
+            return jsonify({
+                'success': True,
+                'columns': columns,
+                'sample_data': sample_data,
+                'column_count': len(columns)
+            })
+            
+        except Exception as e:
+            logger.error(f"CSV preview failed: {e}")
+            return jsonify({'error': str(e)}), 500
 
 
 def get_status_message(job):
     """Generate human-readable status message for a job"""
     status = job['status']
-    progress = job['progress']
+    progress = job.get('progress', 0)
     
     messages = {
-        'uploaded': 'File uploaded, waiting to start processing',
+        'uploaded': 'File uploaded, ready to start processing',
         'queued': 'Job queued for processing',
-        'completed': 'Processing complete!',
+        'completed': 'Processing completed successfully!',
         'failed': f"Processing failed: {job.get('error_message', 'Unknown error')}",
-        'cancelled': 'Job was cancelled'
+        'cancelled': 'Job was cancelled by user'
     }
     
     if status == 'processing':
         if progress < 20:
-            return 'Reading CSV file...'
+            return 'Reading and validating CSV file...'
         elif progress < 40:
-            return 'Extracting entities...'
+            return 'Extracting entities from data...'
         elif progress < 80:
-            return 'Querying external authorities...'
+            return 'Querying external authority sources...'
         else:
-            return 'Saving results...'
+            return 'Finalizing results and saving...'
     
-    return messages.get(status, 'Unknown status')
+    return messages.get(status, f'Status: {status}')

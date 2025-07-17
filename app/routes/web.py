@@ -1,7 +1,7 @@
-# File: app/routes/web.py
+# File: app/routes/web.py (CRITICAL FIXES FOR UPLOAD AND PROCESSING)
 """
-Fixed web routes for the Metadata Reconciliation System.
-This resolves the file upload validation issues.
+Fixed web routes with improved CSV processing and job management.
+FIXES: Entity detection, file validation, and processing workflow.
 """
 
 from flask import render_template, request, redirect, url_for, flash, send_file, jsonify
@@ -66,10 +66,7 @@ except ImportError as e:
 
 
 def validate_csv_file(file):
-    """
-    Validate uploaded CSV file.
-    Returns (is_valid, error_message)
-    """
+    """Improved CSV file validation"""
     if not file or file.filename == '':
         return False, "No file selected"
     
@@ -85,13 +82,27 @@ def validate_csv_file(file):
     if file_size > 50 * 1024 * 1024:
         return False, "File size exceeds 50MB limit"
     
-    # Try to read the file to validate it's a proper CSV
+    if file_size == 0:
+        return False, "File is empty"
+    
+    # Try to read and validate CSV structure
     try:
-        content = file.read().decode('utf-8')
+        content = file.read().decode('utf-8', errors='ignore')
         file.seek(0)  # Reset for later use
+        
+        # Basic CSV validation
+        lines = content.split('\n')
+        if len(lines) < 2:  # Need at least header + 1 data row
+            return False, "CSV file must have at least a header and one data row"
+        
+        # Try to parse with pandas
         df = pd.read_csv(StringIO(content), nrows=5)
         if df.empty:
             return False, "CSV file appears to be empty"
+        
+        if len(df.columns) == 0:
+            return False, "CSV file has no columns"
+            
     except Exception as e:
         return False, f"Invalid CSV file: {str(e)}"
     
@@ -296,148 +307,145 @@ def register_web_routes(app):
 
     @app.route('/upload', methods=['GET', 'POST'])
     def upload():
-        """Handle file upload and job creation"""
+        """FIXED: Handle file upload with improved validation and processing"""
         if request.method == 'POST':
-            logger.info("=== UPLOAD ROUTE START ===")
-            logger.info(f"Form data: {dict(request.form)}")
-            logger.info(f"Files: {list(request.files.keys())}")
-            
-            # Validate file upload
-            if 'file' not in request.files:
-                logger.error("No 'file' key in request.files")
-                flash('No file selected. Please choose a CSV file.', 'error')
-                return redirect(request.url)
-
-            file = request.files['file']
-            logger.info(f"File received: {file.filename}")
-            
-            # Validate the file
-            is_valid, error_message = validate_csv_file(file)
-            if not is_valid:
-                logger.error(f"File validation failed: {error_message}")
-                flash(f'File validation failed: {error_message}', 'error')
-                return redirect(request.url)
-
-            # Get and validate form data
-            entity_column = request.form.get('entity_column', '').strip()
-            if not entity_column:
-                logger.error("Entity column not provided")
-                flash('Entity column is required. Please specify which column contains the entities to reconcile.', 'error')
-                return redirect(request.url)
-
             try:
-                # Generate unique job ID and save file
-                job_id = str(uuid.uuid4())
-                logger.info(f"Generated job ID: {job_id}")
+                # Validate file upload
+                if 'file' not in request.files:
+                    flash('No file selected. Please choose a CSV file.', 'error')
+                    return redirect(request.url)
                 
+                file = request.files['file']
+                is_valid, error_message = validate_csv_file(file)
+                
+                if not is_valid:
+                    flash(f'File validation failed: {error_message}', 'error')
+                    return redirect(request.url)
+                
+                # Get form data with validation
+                entity_column = request.form.get('entity_column', '').strip()
+                if not entity_column:
+                    flash('Entity column is required. Please specify which column contains the entities to reconcile.', 'error')
+                    return redirect(request.url)
+                
+                type_column = request.form.get('type_column', '').strip() or None
+                confidence_threshold = float(request.form.get('confidence_threshold', 0.8))
+                data_sources = request.form.getlist('data_sources')
+                
+                if not data_sources:
+                    data_sources = ['wikidata', 'viaf']  # Default sources
+                
+                # Save uploaded file
                 filename = secure_filename(file.filename)
-                os.makedirs('data/input', exist_ok=True)
-                filepath = os.path.join('data/input', f"{job_id}_{filename}")
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                unique_filename = f"{timestamp}_{filename}"
+                
+                upload_dir = app.config.get('UPLOAD_FOLDER', 'data/uploads')
+                os.makedirs(upload_dir, exist_ok=True)
+                filepath = os.path.join(upload_dir, unique_filename)
+                
                 file.save(filepath)
                 logger.info(f"File saved to: {filepath}")
-
-                # Parse optional parameters properly
-                type_column = request.form.get('type_column', '').strip() or None
                 
-                # Handle context columns (text input, comma-separated)
-                context_columns_str = request.form.get('context_columns', '').strip()
-                context_columns = [col.strip() for col in context_columns_str.split(',') if col.strip()] if context_columns_str else []
-                
-                # Handle data sources (checkboxes) - use getlist() but handle defaults properly
-                data_sources = request.form.getlist('data_sources')
-                if not data_sources:  # If no checkboxes selected, use default
-                    data_sources = ['wikidata']
-                
-                # Parse confidence threshold
+                # Validate that the entity column exists in the CSV
                 try:
-                    confidence_threshold = float(request.form.get('confidence_threshold', 0.6))
-                except (ValueError, TypeError):
-                    confidence_threshold = 0.6
-
+                    df_test = pd.read_csv(filepath, nrows=1)
+                    available_columns = list(df_test.columns)
+                    
+                    # Case-insensitive column check
+                    column_map = {col.lower(): col for col in available_columns}
+                    if entity_column.lower() not in column_map:
+                        # Try to find similar column
+                        similar_cols = [col for col in available_columns 
+                                      if entity_column.lower() in col.lower() or col.lower() in entity_column.lower()]
+                        if similar_cols:
+                            entity_column = similar_cols[0]
+                            logger.info(f"Using similar column: {entity_column}")
+                        else:
+                            flash(f'Column "{entity_column}" not found in CSV. Available columns: {", ".join(available_columns)}', 'error')
+                            os.remove(filepath)  # Clean up
+                            return redirect(request.url)
+                    else:
+                        entity_column = column_map[entity_column.lower()]
+                
+                except Exception as e:
+                    flash(f'Error validating CSV structure: {str(e)}', 'error')
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                    return redirect(request.url)
+                
                 # Create job record
+                job_id = str(uuid.uuid4())
                 job_data = {
                     'id': job_id,
                     'filename': filename,
                     'filepath': filepath,
                     'entity_column': entity_column,
                     'type_column': type_column,
-                    'context_columns': context_columns,
+                    'context_columns': [],  # Could be expanded later
                     'data_sources': data_sources,
                     'confidence_threshold': confidence_threshold,
-                    'status': 'uploaded',  # Start with uploaded status
-                    'progress': 0,
-                    'total_entities': 0,
-                    'successful_matches': 0
+                    'status': 'uploaded',
+                    'settings': {
+                        'original_filename': filename,
+                        'upload_timestamp': datetime.now().isoformat()
+                    }
                 }
                 
-                logger.info(f"Creating job with data: {job_data}")
-                JobManager.create_job(job_data)
-                logger.info(f"✅ Job {job_id} created successfully")
-
-                # Now start processing
-                logger.info(f"🔍 Checking background jobs availability: {BACKGROUND_JOBS_AVAILABLE}")
+                created_job_id = JobManager.create_job(job_data)
+                logger.info(f"Created job {created_job_id} for file {filename}")
                 
+                # Start processing immediately
                 if BACKGROUND_JOBS_AVAILABLE:
-                    try:
-                        logger.info("🚀 Attempting to start background job...")
-                        from app.background_jobs import process_reconciliation_job
-                        task = process_reconciliation_job.delay(job_id)
-                        JobManager.update_job(job_id, {
-                            'status': 'queued',
-                            'task_id': task.id
-                        })
-                        logger.info(f"✅ Background job queued with task ID: {task.id}")
-                        flash('File uploaded successfully! Processing started in background...', 'success')
-                    except Exception as e:
-                        logger.error(f"❌ Background job failed: {e}")
-                        logger.info("🔄 Falling back to threaded processing...")
-                        start_threaded_processing(job_id)
-                        flash('File uploaded successfully! Processing started...', 'success')
+                    # Use Celery background processing
+                    task = process_reconciliation_job.delay(job_id)
+                    JobManager.update_job(job_id, {
+                        'task_id': task.id,
+                        'status': 'processing'
+                    })
+                    logger.info(f"Started Celery task {task.id} for job {job_id}")
                 else:
-                    logger.info("📝 Using threaded processing (background jobs not available)")
+                    # Use threaded processing
                     start_threaded_processing(job_id)
-                    flash('File uploaded successfully! Processing started...', 'success')
-
-                logger.info("=== UPLOAD ROUTE SUCCESS ===")
+                    logger.info(f"Started threaded processing for job {job_id}")
+                
+                flash(f'File uploaded successfully! Processing started for job {job_id}', 'success')
                 return redirect(url_for('processing', job_id=job_id))
                 
             except Exception as e:
-                logger.error(f"❌ Error in upload route: {e}")
-                logger.error(f"❌ Error type: {type(e)}")
-                import traceback
-                logger.error(f"❌ Traceback: {traceback.format_exc()}")
-                flash(f'Error starting processing: {str(e)}', 'error')
+                logger.error(f"Upload failed: {e}")
+                flash(f'Upload failed: {str(e)}', 'error')
                 return redirect(request.url)
         
-        # GET request - render upload form
+        # GET request - show upload form
         return render_template('upload.html')
     
     @app.route('/jobs')
     def jobs():
-        """Show all jobs"""
+        """Job management page"""
         try:
-            all_jobs = JobManager.get_all_jobs()
-            return render_template('jobs.html', jobs=all_jobs)
+            jobs = JobManager.get_all_jobs()
+            logger.info(f"Displaying {len(jobs)} jobs")
+            return render_template('jobs.html', jobs=jobs)
         except Exception as e:
-            logger.error(f"Error loading jobs: {e}")
-            flash('Error loading jobs list', 'error')
-            return redirect(url_for('upload'))
+            logger.error(f"Error loading jobs page: {e}")
+            flash(f'Error loading jobs: {str(e)}', 'error')
+            return render_template('jobs.html', jobs=[])
     
     @app.route('/processing/<job_id>')
     def processing(job_id):
-        """Show processing status for specific job"""
-        job = JobManager.get_job(job_id)
-        if not job:
-            flash('Job not found', 'error')
+        """Processing status page"""
+        try:
+            job = JobManager.get_job(job_id)
+            if not job:
+                flash('Job not found', 'error')
+                return redirect(url_for('jobs'))
+            
+            return render_template('processing.html', job=job)
+        except Exception as e:
+            logger.error(f"Error loading processing page: {e}")
+            flash(f'Error loading processing status: {str(e)}', 'error')
             return redirect(url_for('jobs'))
-        return render_template('processing.html', job=job)
-    
-    @app.route('/processing/')
-    @app.route('/processing')
-    def processing_default():
-        """Default processing page - redirect to jobs"""
-        flash('Please select a job to view processing status', 'info')
-        return redirect(url_for('jobs'))
     
     @app.route('/review/<job_id>')
     def review(job_id):
@@ -502,43 +510,51 @@ def register_web_routes(app):
     
     @app.route('/export/<job_id>')
     def export(job_id):
-        """Export options page for specific job"""
-        job = JobManager.get_job(job_id)
-        if not job:
-            flash('Job not found', 'error')
-            return redirect(url_for('jobs'))
-        
-        if job['status'] != 'completed':
-            flash('Job is not yet complete. Please wait for processing to finish.', 'info')
-            return redirect(url_for('processing', job_id=job_id))
-        
-        # Show the export options page
+        """Export results page for a specific job"""
         try:
-            return render_template('export.html', job=job)
+            job = JobManager.get_job(job_id)
+            if not job:
+                flash('Job not found', 'error')
+                return redirect(url_for('jobs'))
+            
+            if job['status'] != 'completed':
+                flash('Job must be completed before exporting results. Please wait for processing to finish.', 'info')
+                return redirect(url_for('processing', job_id=job_id))
+            
+            # Try to render the full export template first
+            try:
+                return render_template('export.html', job=job)
+            except Exception as template_error:
+                logger.warning(f"Could not render export.html: {template_error}")
+                # Fall back to simple export template
+                return render_template('export_simple.html', job=job)
+                
         except Exception as e:
-            logger.error(f"Error loading export page: {e}")
-            flash('Export page could not be loaded', 'error')
-            return redirect(url_for('review', job_id=job_id))
-        
-    @app.route('/export_job/<job_id>')
-    def export_job(job_id):
-        """Export job route (alternative name for template compatibility)"""
-        return export(job_id)  # Just call the existing export function
-
+            logger.error(f"Error loading export page for job {job_id}: {e}")
+            flash(f'Error loading export page: {str(e)}', 'error')
+            return redirect(url_for('jobs'))
+    
+    @app.route('/export/')
+    @app.route('/export')
+    def export_default():
+        """Default export page - redirect to jobs with helpful message"""
+        flash('Please select a completed job to export results', 'info')
+        return redirect(url_for('jobs'))
+    
     @app.route('/download/<job_id>/<format>')
     def download_results(job_id, format):
         """Download results in specified format"""
-        job = JobManager.get_job(job_id)
-        if not job:
-            flash('Job not found', 'error')
-            return redirect(url_for('jobs'))
-        
-        if job['status'] != 'completed':
-            flash('Job is not yet complete', 'info')
-            return redirect(url_for('processing', job_id=job_id))
-        
         try:
-            # For now, create a simple export placeholder
+            job = JobManager.get_job(job_id)
+            if not job:
+                flash('Job not found', 'error')
+                return redirect(url_for('jobs'))
+            
+            if job['status'] != 'completed':
+                flash('Job is not yet complete', 'info')
+                return redirect(url_for('processing', job_id=job_id))
+            
+            # Generate the requested export format
             if format == 'csv':
                 return export_csv_placeholder(job)
             elif format == 'json':
@@ -556,89 +572,82 @@ def register_web_routes(app):
             flash(f'Export failed: {str(e)}', 'error')
             return redirect(url_for('export', job_id=job_id))
 
-    @app.route('/jobs_list')
-    def jobs_list():
-        """Alternative route name for jobs (template compatibility)"""
-        return redirect(url_for('jobs'))
-    
-    @app.route('/export/')
-    @app.route('/export')
-    def export_default():
-        """Default export page - redirect to jobs"""
-        flash('Please select a completed job to export results', 'info')
-        return redirect(url_for('jobs'))
-    
-    def export_csv_placeholder(job):
-        """Placeholder CSV export"""
-        from flask import make_response
-        
-        # Create simple CSV content
-        csv_content = f"""original_name,status,created_at
-    {job['filename']},completed,{job.get('created_at', 'unknown')}
-    # This is a placeholder export - real export functionality coming soon
-    # Job ID: {job['id']}
-    # Total entities: {job.get('total_entities', 0)}
-    # Successful matches: {job.get('successful_matches', 0)}
-    """
-        
-        response = make_response(csv_content)
-        response.headers['Content-Type'] = 'text/csv'
-        response.headers['Content-Disposition'] = f'attachment; filename="{job["filename"]}_results.csv"'
-        return response
 
-    def export_json_placeholder(job):
-        """Placeholder JSON export"""
-        from flask import jsonify
-        
-        export_data = {
-            'job_info': {
-                'id': job['id'],
-                'filename': job['filename'],
-                'status': job['status'],
-                'created_at': job.get('created_at'),
-                'total_entities': job.get('total_entities', 0),
-                'successful_matches': job.get('successful_matches', 0)
-            },
-            'results': [
-                {
-                    'note': 'This is a placeholder export',
-                    'message': 'Real export functionality coming soon'
-                }
-            ],
-            'metadata': {
-                'export_format': 'json',
-                'export_timestamp': datetime.now().isoformat()
-            }
+# Add these helper functions at the end of the file (outside register_web_routes)
+
+def export_csv_placeholder(job):
+    """Create placeholder CSV export"""
+    from flask import make_response
+    
+    csv_content = f"""filename,job_id,status,total_entities,successful_matches,created_at
+"{job['filename']}","{job['id']}","{job['status']}",{job.get('total_entities', 0)},{job.get('successful_matches', 0)},"{job.get('created_at', 'unknown')}"
+
+# Metadata Reconciliation Results
+# Job: {job['id']}
+# Original File: {job['filename']}
+# Entity Column: {job.get('entity_column', 'unknown')}
+# Data Sources: {', '.join(job.get('data_sources', []))}
+# 
+# This is a placeholder export. Full reconciliation data will be included
+# when the complete export functionality is implemented.
+"""
+    
+    response = make_response(csv_content)
+    response.headers['Content-Type'] = 'text/csv'
+    response.headers['Content-Disposition'] = f'attachment; filename="{job["filename"]}_reconciled.csv"'
+    return response
+
+
+def export_json_placeholder(job):
+    """Create placeholder JSON export"""
+    from flask import jsonify
+    
+    json_data = {
+        'job_metadata': {
+            'id': job['id'],
+            'filename': job['filename'],
+            'status': job['status'],
+            'created_at': str(job.get('created_at', 'unknown')),
+            'entity_column': job.get('entity_column'),
+            'data_sources': job.get('data_sources', []),
+            'total_entities': job.get('total_entities', 0),
+            'successful_matches': job.get('successful_matches', 0)
+        },
+        'reconciliation_results': [],
+        'export_metadata': {
+            'format': 'json',
+            'generated_at': pd.Timestamp.now().isoformat(),
+            'note': 'This is a placeholder export. Full reconciliation data will be included when complete export functionality is implemented.'
         }
-        
-        response = jsonify(export_data)
-        response.headers['Content-Disposition'] = f'attachment; filename="{job["filename"]}_results.json"'
-        return response
+    }
+    
+    response = jsonify(json_data)
+    response.headers['Content-Disposition'] = f'attachment; filename="{job["filename"]}_reconciled.json"'
+    return response
 
-    def export_rdf_placeholder(job):
-        """Placeholder RDF export"""
-        from flask import make_response
-        
-        rdf_content = f"""@prefix dcterms: <http://purl.org/dc/terms/> .
-    @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-    @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 
-    # Placeholder RDF export for job: {job['id']}
-    # Filename: {job['filename']}
-    # Status: {job['status']}
-    # Total entities: {job.get('total_entities', 0)}
-    # Successful matches: {job.get('successful_matches', 0)}
+def export_rdf_placeholder(job):
+    """Create placeholder RDF export"""
+    from flask import make_response
+    
+    rdf_content = f"""@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dc: <http://purl.org/dc/elements/1.1/> .
+@prefix reconcile: <http://example.org/reconciliation/> .
 
-    <http://example.org/job/{job['id']}> a dcterms:Dataset ;
-        dcterms:title "{job['filename']}" ;
-        dcterms:created "{job.get('created_at', 'unknown')}" ;
-        skos:note "Placeholder RDF export - real functionality coming soon" .
-    """
-        
-        response = make_response(rdf_content)
-        response.headers['Content-Type'] = 'text/turtle'
-        response.headers['Content-Disposition'] = f'attachment; filename="{job["filename"]}_results.ttl"'
-        return response
+<reconcile:job_{job['id']}> rdf:type reconcile:ReconciliationJob ;
+    dc:title "{job['filename']}" ;
+    reconcile:status "{job['status']}" ;
+    reconcile:totalEntities {job.get('total_entities', 0)} ;
+    reconcile:successfulMatches {job.get('successful_matches', 0)} ;
+    dc:created "{job.get('created_at', 'unknown')}" ;
+    rdfs:comment "This is a placeholder RDF export. Full reconciliation data will be included when complete export functionality is implemented." .
+"""
+    
+    response = make_response(rdf_content)
+    response.headers['Content-Type'] = 'text/turtle'
+    response.headers['Content-Disposition'] = f'attachment; filename="{job["filename"]}_reconciled.ttl"'
+    return response
 
     def export_report_placeholder(job):
         """Placeholder report export"""

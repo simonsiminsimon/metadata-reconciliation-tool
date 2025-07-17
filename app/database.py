@@ -13,9 +13,14 @@ Using SQLite because it's simple and doesn't require a separate database server.
 import sqlite3
 import json
 import os
-from datetime import datetime
+import logging
+from datetime import datetime, time
 from typing import List, Dict, Any, Optional
 from contextlib import contextmanager
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Database file location
 DB_PATH = 'data/reconciliation.db'
@@ -190,10 +195,6 @@ class JobManager:
                     'settings': json.loads(row['settings'] or '{}')
                 }
                 
-                # DEBUG: Print what we're returning
-                print(f"DEBUG: Returning job with created_at type: {type(job_data['created_at'])}")
-                print(f"DEBUG: created_at value: {job_data['created_at']}")
-                
                 return job_data
     
     @staticmethod
@@ -242,6 +243,93 @@ class JobManager:
                 })
             
             return jobs
+    @staticmethod
+    def delete_job(job_id: str) -> bool:
+        """
+        Delete a job and all its associated data.
+        Returns True if successful, False otherwise.
+        """
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Delete from matches table first (foreign key constraint)
+                cursor.execute('DELETE FROM matches WHERE result_id IN (SELECT id FROM results WHERE job_id = ?)', (job_id,))
+                
+                # Delete from results table
+                cursor.execute('DELETE FROM results WHERE job_id = ?', (job_id,))
+                
+                # Delete from jobs table
+                cursor.execute('DELETE FROM jobs WHERE id = ?', (job_id,))
+                
+                # Check if job was actually deleted
+                rows_affected = cursor.rowcount
+                
+                conn.commit()
+                
+                if rows_affected > 0:
+                    logger.info(f"Successfully deleted job {job_id} from database")
+                    return True
+                else:
+                    logger.warning(f"Job {job_id} was not found in database")
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"Failed to delete job {job_id}: {e}")
+            return False
+
+    @staticmethod
+    def get_jobs_by_status(status: str) -> List[Dict[str, Any]]:
+        """Get all jobs with a specific status"""
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM jobs WHERE status = ? ORDER BY created_at DESC', (status,))
+            rows = cursor.fetchall()
+            
+            jobs = []
+            for row in rows:
+                jobs.append({
+                    'id': row['id'],
+                    'filename': row['filename'],
+                    'status': row['status'],
+                    'created_at': JobManager._parse_datetime(row['created_at']),
+                    'progress': row['progress'],
+                    'total_entities': row['total_entities'],
+                    'successful_matches': row['successful_matches'],
+                    'error_message': row['error_message']
+                })
+            
+            return jobs
+
+    @staticmethod
+    def cleanup_old_jobs(days_old: int = 30) -> int:
+        """
+        Delete jobs older than specified days.
+        Returns number of jobs deleted.
+        """
+        try:
+            cutoff_date = datetime.now() - time.delta(days=days_old)
+            
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Get old job IDs first
+                cursor.execute('SELECT id FROM jobs WHERE created_at < ?', (cutoff_date,))
+                old_job_ids = [row[0] for row in cursor.fetchall()]
+                
+                if not old_job_ids:
+                    return 0
+                
+                # Delete associated data
+                for job_id in old_job_ids:
+                    JobManager.delete_job(job_id)
+                
+                logger.info(f"Cleaned up {len(old_job_ids)} old jobs")
+                return len(old_job_ids)
+                
+        except Exception as e:
+            logger.error(f"Failed to cleanup old jobs: {e}")
+            return 0
 
 class ResultsManager:
     """
