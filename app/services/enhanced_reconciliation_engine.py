@@ -6,53 +6,60 @@ Fixed issues with entity extraction and CSV parsing.
 
 import pandas as pd
 import re
+import time
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
 import logging
 
+# Import the new Wikidata client
+from .wikidata_cultural_client import (
+    CulturalHeritageWikidataClient, 
+    WikidataMatch, 
+    EntityType as WikidataEntityType,
+    ConfidenceLevel
+)
+
+# Import existing components
+from .reconciliation_engine import (
+    Entity, EntityType, ReconciliationResult, MatchResult,
+    SimpleCache, ConfidenceLevel as OldConfidenceLevel
+)
+
 logger = logging.getLogger(__name__)
-
-class EntityType(Enum):
-    PERSON = "person"
-    PLACE = "place" 
-    ORGANIZATION = "organization"
-    SUBJECT = "subject"
-    ARTWORK = "artwork"
-    AUTHOR = "author"
-    UNKNOWN = "unknown"
-
-@dataclass
-class Entity:
-    id: str
-    name: str
-    entity_type: EntityType
-    context: Dict[str, Any]
-    source_row: int
-
-@dataclass 
-class MatchResult:
-    source: str
-    uri: str
-    label: str
-    score: float
-    properties: Dict[str, Any]
-
-@dataclass
-class ReconciliationResult:
-    entity: Entity
-    matches: List[MatchResult]
-    best_match: Optional[MatchResult]
-    confidence: str
-    sources_queried: List[str]
-    processing_time: float
 
 class EnhancedReconciliationEngine:
     """Enhanced reconciliation engine with improved entity detection"""
     
-    def __init__(self):
+    def __init__(self, cache_size: int = 1000, wikidata_rate_limit: float = 1.0):
+        """
+        Initialize the enhanced reconciliation engine
+        
+        Args:
+            cache_size: Size of the local cache
+            wikidata_rate_limit: Wikidata API rate limit (requests per second)
+        """
+        # Initialize the enhanced Wikidata client
+        try:
+            from .failsafe_wikidata_client import FailsafeWikidataClient
+            self.wikidata_client = FailsafeWikidataClient(
+                rate_limit=wikidata_rate_limit,
+                timeout=10,  # Short timeout
+                max_results=5  # Fewer results to speed up
+            )
+        except ImportError:
+            # Fallback to cultural heritage client if failsafe not available
+            self.wikidata_client = CulturalHeritageWikidataClient(
+                rate_limit=wikidata_rate_limit
+            )
+        
+        # Keep the simple cache for backward compatibility
+        self.cache = SimpleCache(max_size=cache_size)
+        
+        # Statistics tracking
         self._stats = {
             'total_processed': 0,
+            'cache_hits': 0,
             'wikidata_matches': 0,
             'high_confidence_matches': 0
         }
@@ -235,17 +242,6 @@ class EnhancedReconciliationEngine:
         else:
             return OldConfidenceLevel.LOW
     
-    def process_entities(self, entities: List[Entity]) -> List[ReconciliationResult]:
-        """Process a list of entities (main interface method)"""
-        results = []
-        
-        for entity in entities:
-            result = self._reconcile_entity(entity)
-            results.append(result)
-        
-        return results
-    
-    # FIXED: Proper type annotation using pd.DataFrame instead of pd
     def create_entities_from_dataframe(self, 
                                      df: pd.DataFrame, 
                                      entity_column: str,
@@ -287,15 +283,15 @@ class EnhancedReconciliationEngine:
         # Fix 3: More lenient entity extraction with better cleaning
         entity_count = 0
         for idx, row in df.iterrows():
-            entity_name = str(row[entity_column]).strip()
+            entity_name = str(row[entity_col_actual]).strip()  # Use actual column name
             print(f"🔍 DEBUG: Row {idx}: '{entity_name}' -> valid: {entity_name and entity_name.lower() not in ['nan', 'none', '']}")
             
             if not entity_name or entity_name.lower() in ['nan', 'none', '']:
                 continue
             
             # Determine entity type
-            if type_column and type_column in row:
-                entity_type = self._parse_entity_type(str(row[type_column]))
+            if type_col_actual and type_col_actual in row:
+                entity_type = self._parse_entity_type(str(row[type_col_actual]))
             else:
                 entity_type = self._infer_entity_type(entity_name)
             
@@ -313,10 +309,11 @@ class EnhancedReconciliationEngine:
                 source_row=idx
             )
             entities.append(entity)
+            entity_count += 1
         
+        logger.info(f"Created {entity_count} entities from {len(df)} rows")
         return entities
     
-    # FIXED: Proper return type annotation
     def _parse_entity_type(self, type_str: str) -> EntityType:
         """Parse entity type from string with better matching"""
         if pd.isna(type_str) or not type_str:
@@ -395,21 +392,12 @@ class EnhancedReconciliationEngine:
         return EntityType.UNKNOWN
     
     def process_entities(self, entities: List[Entity]) -> List[ReconciliationResult]:
-        """Process entities for reconciliation (mock implementation for now)"""
+        """Process entities for reconciliation"""
         results = []
         
         for entity in entities:
-            # Mock reconciliation result
-            result = ReconciliationResult(
-                entity=entity,
-                matches=[],
-                best_match=None,
-                confidence="LOW",
-                sources_queried=["wikidata", "viaf"],
-                processing_time=0.1
-            )
+            result = self._reconcile_entity(entity)
             results.append(result)
-            self._stats['total_processed'] += 1
         
         return results
     
