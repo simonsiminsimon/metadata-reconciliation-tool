@@ -235,11 +235,13 @@ def register_web_routes(app):
 
                 JobManager.create_job(job_data)
 
+                start_threaded_processing(job_id)
+
                 # Start processing
-                if BACKGROUND_JOBS_AVAILABLE:
-                    process_reconciliation_job.delay(job_id)
-                else:
-                    start_threaded_processing(job_id)
+                #if BACKGROUND_JOBS_AVAILABLE:
+                #    process_reconciliation_job.delay(job_id)
+                #else:
+                #   start_threaded_processing(job_id)
 
                 flash('File uploaded successfully! Processing started.', 'success')
                 return redirect(url_for('processing', job_id=job_id))
@@ -319,9 +321,31 @@ def register_web_routes(app):
             flash('Error loading results', 'error')
             return redirect(url_for('jobs'))
 
+    @app.route('/download/<job_id>/<format>')
+    def download_results(job_id, format):
+        """Download results in specified format - FIXED VERSION"""
+        job = JobManager.get_job(job_id)
+        if not job:
+            flash('Job not found', 'error')
+            return redirect(url_for('jobs'))
+        
+        try:
+            if format == 'csv':
+                return export_csv_with_results(job)  # Use the new function
+            elif format == 'json':
+                return export_json_with_results(job)  # Use the new function
+            else:
+                flash(f'Unsupported format: {format}', 'error')
+                return redirect(url_for('export', job_id=job_id))
+        except Exception as e:
+            logger.error(f"Download failed: {e}")
+            flash(f'Download failed: {str(e)}', 'error')
+            return redirect(url_for('export', job_id=job_id))
+
+    # Also update the export route to fix template URL issues
     @app.route('/export/<job_id>')
     def export(job_id):
-        """Export results page"""
+        """Export results page - FIXED VERSION"""
         job = JobManager.get_job(job_id)
         if not job:
             flash('Job not found', 'error')
@@ -335,7 +359,7 @@ def register_web_routes(app):
             return render_template('export.html', job=job)
         except Exception as e:
             logger.error(f"Export template error: {e}")
-            # Fallback HTML
+            # Fallback HTML with FIXED URL references
             return f"""
             <!DOCTYPE html>
             <html>
@@ -347,39 +371,19 @@ def register_web_routes(app):
                 <p>Matches: {job.get('successful_matches', 0)}</p>
                 <p>
                     <a href="{url_for('download_results', job_id=job_id, format='csv')}" 
-                       style="background: #007cba; color: white; padding: 10px; text-decoration: none;">
-                       Download CSV
+                    style="background: #007cba; color: white; padding: 10px; text-decoration: none; margin-right: 10px;">
+                    Download CSV with Results
                     </a>
                     <a href="{url_for('download_results', job_id=job_id, format='json')}"
-                       style="background: #007cba; color: white; padding: 10px; text-decoration: none; margin-left: 10px;">
-                       Download JSON
+                    style="background: #007cba; color: white; padding: 10px; text-decoration: none;">
+                    Download JSON
                     </a>
                 </p>
                 <p><a href="{url_for('review', job_id=job_id)}">← Back to Review</a></p>
+                <p><a href="{url_for('jobs')}">← Back to Jobs</a></p>
             </body>
             </html>
             """
-
-    @app.route('/download/<job_id>/<format>')
-    def download_results(job_id, format):
-        """Download results in specified format"""
-        job = JobManager.get_job(job_id)
-        if not job:
-            flash('Job not found', 'error')
-            return redirect(url_for('jobs'))
-        
-        try:
-            if format == 'csv':
-                return export_csv_placeholder(job)
-            elif format == 'json':
-                return export_json_placeholder(job)
-            else:
-                flash(f'Unsupported format: {format}', 'error')
-                return redirect(url_for('export', job_id=job_id))
-        except Exception as e:
-            logger.error(f"Download failed: {e}")
-            flash(f'Download failed: {str(e)}', 'error')
-            return redirect(url_for('export', job_id=job_id))
 
     # Default routes for navigation (handle empty job_id calls from templates)
     @app.route('/processing/')
@@ -401,34 +405,135 @@ def register_web_routes(app):
         return redirect(url_for('jobs'))
 
 
-def export_csv_placeholder(job):
-    """Simple CSV export"""
+def export_csv_with_results(job):
+    """Export CSV with actual reconciliation results"""
     from flask import make_response
+    from app.database import ResultsManager
+    import csv
+    from io import StringIO
     
-    csv_content = f"""job_id,filename,status,total_entities,successful_matches,created_at
-{job['id']},{job['filename']},{job['status']},{job.get('total_entities', 0)},{job.get('successful_matches', 0)},{job.get('created_at', 'unknown')}
-"""
-    
-    response = make_response(csv_content)
-    response.headers['Content-Type'] = 'text/csv'
-    response.headers['Content-Disposition'] = f'attachment; filename=results_{job["id"]}.csv'
-    return response
+    try:
+        # Get ALL results for this job (not paginated)
+        results, total_count = ResultsManager.get_results(job['id'], page=1, per_page=10000)
+        
+        # Create CSV content
+        output = StringIO()
+        fieldnames = [
+            'entity_name', 'entity_type', 'confidence_level', 'best_match_name', 
+            'best_match_id', 'best_match_score', 'best_match_description', 
+            'match_source', 'user_approved', 'context_info'
+        ]
+        
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        
+        for result in results:
+            entity = result['entity']
+            matches = result.get('matches', [])
+            
+            if matches:
+                # Get the best match (first one, as they're sorted by score)
+                best_match = matches[0]
+                
+                # Find if user approved this match
+                user_approved = best_match.get('user_approved')
+                if user_approved is None:
+                    approval_status = 'pending'
+                elif user_approved:
+                    approval_status = 'approved'
+                else:
+                    approval_status = 'rejected'
+                
+                writer.writerow({
+                    'entity_name': entity['name'],
+                    'entity_type': entity.get('type', 'unknown'),
+                    'confidence_level': result.get('confidence', 'unknown'),
+                    'best_match_name': best_match['name'],
+                    'best_match_id': best_match['id'],
+                    'best_match_score': f"{best_match['score']:.3f}",
+                    'best_match_description': best_match.get('description', ''),
+                    'match_source': best_match.get('source', 'wikidata'),
+                    'user_approved': approval_status,
+                    'context_info': str(entity.get('context', {}))
+                })
+            else:
+                # No matches found
+                writer.writerow({
+                    'entity_name': entity['name'],
+                    'entity_type': entity.get('type', 'unknown'),
+                    'confidence_level': result.get('confidence', 'low'),
+                    'best_match_name': 'NO_MATCH',
+                    'best_match_id': '',
+                    'best_match_score': '0.000',
+                    'best_match_description': 'No matches found',
+                    'match_source': '',
+                    'user_approved': 'no_match',
+                    'context_info': str(entity.get('context', {}))
+                })
+        
+        csv_content = output.getvalue()
+        output.close()
+        
+        response = make_response(csv_content)
+        response.headers['Content-Type'] = 'text/csv'
+        response.headers['Content-Disposition'] = f'attachment; filename=reconciled_{job["filename"]}'
+        return response
+        
+    except Exception as e:
+        logger.error(f"CSV export failed: {e}")
+        # Fallback to simple export
+        return export_csv_with_results(job)
 
 
-def export_json_placeholder(job):
-    """Simple JSON export"""
+def export_json_with_results(job):
+    """Export JSON with actual reconciliation results"""
     from flask import make_response
+    from app.database import ResultsManager
+    import json
+    from datetime import datetime
     
-    json_data = {
-        'job_id': job['id'],
-        'filename': job['filename'],
-        'status': job['status'],
-        'total_entities': job.get('total_entities', 0),
-        'successful_matches': job.get('successful_matches', 0),
-        'created_at': job.get('created_at')
-    }
-    
-    response = make_response(json.dumps(json_data, indent=2))
-    response.headers['Content-Type'] = 'application/json'
-    response.headers['Content-Disposition'] = f'attachment; filename=results_{job["id"]}.json'
-    return response
+    try:
+        # Get ALL results for this job
+        results, total_count = ResultsManager.get_results(job['id'], page=1, per_page=10000)
+        
+        # Convert datetime objects to strings
+        def serialize_datetime(obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+        
+        export_data = {
+            'job_info': {
+                'job_id': job['id'],
+                'filename': job['filename'],
+                'status': job['status'],
+                'total_entities': job.get('total_entities', 0),
+                'successful_matches': job.get('successful_matches', 0),
+                'created_at': job.get('created_at', '').isoformat() if isinstance(job.get('created_at'), datetime) else str(job.get('created_at', ''))
+            },
+            'reconciliation_results': results,
+            'metadata': {
+                'total_results': total_count,
+                'export_timestamp': datetime.now().isoformat(),
+                'format_version': '1.0'
+            }
+        }
+        
+        json_content = json.dumps(export_data, indent=2, default=serialize_datetime)
+        
+        response = make_response(json_content)
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Content-Disposition'] = f'attachment; filename=reconciled_{job["filename"]}.json'
+        return response
+        
+    except Exception as e:
+        logger.error(f"JSON export failed: {e}")
+        # Return error response
+        error_data = {
+            'error': str(e),
+            'job_id': job['id'],
+            'timestamp': datetime.now().isoformat()
+        }
+        response = make_response(json.dumps(error_data, indent=2))
+        response.headers['Content-Type'] = 'application/json'
+        return response

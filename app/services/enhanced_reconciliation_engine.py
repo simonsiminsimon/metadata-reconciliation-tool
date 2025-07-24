@@ -139,77 +139,53 @@ class EnhancedReconciliationEngine:
         
         # Type-specific context
         if entity.entity_type == EntityType.PERSON:
-            # Look for birth/death information
-            if 'birth_year' in entity.context:
-                context_hints['birth_year'] = entity.context['birth_year']
-            if 'death_year' in entity.context:
-                context_hints['death_year'] = entity.context['death_year']
+            matches = self.wikidata_client._api_search(entity.name, limit=5)
+            ## Look for birth/death information
+            #if 'birth_year' in entity.context:
+            #    context_hints['birth_year'] = entity.context['birth_year']
+            #if 'death_year' in entity.context:
+            #    context_hints['death_year'] = entity.context['death_year']
         
         return context_hints
     
     def _reconcile_entity(self, entity: Entity) -> ReconciliationResult:
-        """Reconcile a single entity using the enhanced Wikidata client"""
+        """Reconcile a single entity against Wikidata sources"""
         start_time = time.time()
-    
-        # Add debug logging
-        print(f"🔍 Reconciling: {entity.name} (Type: {entity.entity_type.value})")
-    
-        # Check cache first
-        cached_result = self.cache.get(entity.search_key)
-        if cached_result:
-            self._stats['cache_hits'] += 1
-            print(f"  ✅ Found in cache")
-            return cached_result
-    
-        # Extract context hints for better matching
-        context_hints = self._extract_context_hints(entity)
-        print(f"  📋 Context hints: {context_hints}")
+        matches = []
         
-        # Convert entity type
-        wikidata_entity_type = self._convert_entity_type(entity.entity_type)
-        print(f"  🔄 Converted type: {entity.entity_type.value} → {wikidata_entity_type.value}")
-        
-        # Query Wikidata based on entity type
-        wikidata_matches = []
-    
         try:
-            print(f"  🌐 Searching Wikidata...")
-            
-            if wikidata_entity_type == WikidataEntityType.PERSON:
-                wikidata_matches = self.wikidata_client.search_persons(entity.name, context_hints)
-            elif wikidata_entity_type == WikidataEntityType.PLACE:
-                wikidata_matches = self.wikidata_client.search_places(entity.name, context_hints)
-            elif wikidata_entity_type == WikidataEntityType.ORGANIZATION:
-                wikidata_matches = self.wikidata_client.search_organizations(entity.name, context_hints)
-            elif wikidata_entity_type == WikidataEntityType.SUBJECT_TOPIC:
-                wikidata_matches = self.wikidata_client.search_subjects(entity.name, context_hints)
+            # Use the correct method based on entity type
+            if entity.entity_type == EntityType.PERSON:
+                # Use the correct method name for FailsafeWikidataClient
+                matches = self.wikidata_client.search_persons(entity.name, context_hints=entity.context)
+            elif entity.entity_type == EntityType.ORGANIZATION:
+                matches = self.wikidata_client.search_organizations(entity.name, context_hints=entity.context)
+            elif entity.entity_type == EntityType.PLACE:
+                matches = self.wikidata_client.search_places(entity.name, context_hints=entity.context)
             else:
-                # For unknown types, try multiple searches
-                print(f"  ⚠️ Unknown type, trying person search first")
-                wikidata_matches = self.wikidata_client.search_persons(entity.name, context_hints)
-                if not wikidata_matches:
-                    print(f"  ⚠️ No person matches, trying organization search")
-                    wikidata_matches = self.wikidata_client.search_organizations(entity.name, context_hints)
+                # For subjects or unknown types, use subjects search
+                matches = self.wikidata_client.search_subjects(entity.name, context_hints=entity.context)
             
-            print(f"  📊 Found {len(wikidata_matches)} Wikidata matches")
-        
         except Exception as e:
-            print(f"  ❌ Error querying Wikidata: {e}")
-            import traceback
-            traceback.print_exc()
-            wikidata_matches = []
+            logger.error(f"Error reconciling entity {entity.name}: {e}")
+            matches = []
         
-        # Convert Wikidata matches to MatchResult objects
-        matches = [self._convert_wikidata_match_to_result(match) for match in wikidata_matches]
+        # Convert WikidataMatch objects to MatchResult objects for compatibility
+        match_results = []
+        for wikidata_match in matches:
+            match_result = self._convert_wikidata_match_to_result(wikidata_match)
+            match_results.append(match_result)
         
-        # Determine best match and overall confidence
-        best_match = matches[0] if matches else None
-        confidence = self._calculate_overall_confidence(matches)
+        # Sort by confidence score
+        match_results.sort(key=lambda x: x.score, reverse=True)
         
-        # Create result
+        # Determine best match and confidence
+        best_match = match_results[0] if match_results else None
+        confidence = self._calculate_overall_confidence(match_results)
+        
         result = ReconciliationResult(
             entity=entity,
-            matches=matches,
+            matches=match_results,
             best_match=best_match,
             confidence=confidence,
             reconciliation_time=time.time() - start_time,

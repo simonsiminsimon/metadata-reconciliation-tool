@@ -392,7 +392,7 @@ class ResultsManager:
     
     @staticmethod
     def get_results(job_id: str, page: int = 1, per_page: int = 10) -> tuple:
-        """Get paginated results for a job"""
+        """Get paginated results for a job - FIXED VERSION"""
         with get_db_connection() as conn:
             cursor = conn.cursor()
             
@@ -400,12 +400,14 @@ class ResultsManager:
             cursor.execute('SELECT COUNT(*) FROM results WHERE job_id = ?', (job_id,))
             total_count = cursor.fetchone()[0]
             
-            # Get paginated results
+            # Calculate offset correctly
             offset = (page - 1) * per_page
+            
+            # Get paginated results with CORRECT offset calculation
             cursor.execute('''
             SELECT * FROM results 
             WHERE job_id = ? 
-            ORDER BY created_at 
+            ORDER BY id ASC
             LIMIT ? OFFSET ?
             ''', (job_id, per_page, offset))
             
@@ -424,18 +426,22 @@ class ResultsManager:
                 match_rows = cursor.fetchall()
                 
                 matches = []
+                highest_score = 0.0
                 for match_row in match_rows:
+                    score = float(match_row['match_score'] or 0.0)
+                    highest_score = max(highest_score, score)
+                    
                     matches.append({
                         'id': match_row['match_id'],
                         'name': match_row['match_name'],
                         'source': match_row['match_source'],
-                        'score': match_row['match_score'],
+                        'score': score,
                         'description': match_row['match_description'],
                         'additional_info': json.loads(match_row['additional_info'] or '{}'),
                         'user_approved': match_row['user_approved']
                     })
                 
-                # Format result
+                # Format result with FIXED structure for template
                 formatted_result = {
                     'entity': {
                         'id': result_row['entity_id'],
@@ -443,7 +449,8 @@ class ResultsManager:
                         'type': result_row['entity_type'],
                         'context': json.loads(result_row['context'] or '{}')
                     },
-                    'confidence': result_row['confidence'],
+                    'confidence': result_row['confidence'],  # Keep original
+                    'highest_confidence': highest_score,     # ADD THIS - calculated from actual scores
                     'sources_queried': json.loads(result_row['sources_queried'] or '[]'),
                     'cached': bool(result_row['cached']),
                     'matches': matches

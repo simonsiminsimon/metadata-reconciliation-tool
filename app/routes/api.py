@@ -313,7 +313,56 @@ def register_api_routes(app):
         except Exception as e:
             logger.error(f"Failed to get statistics: {e}")
             return jsonify({'error': str(e)}), 500
-
+    @app.route('/api/matches/<match_id>/approve', methods=['POST'])
+    def approve_match(match_id):
+        """Approve or reject a specific match"""
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No data provided'}), 400
+            
+            entity_id = data.get('entity_id')
+            approved = data.get('approved', True)
+            
+            if not entity_id:
+                return jsonify({'error': 'entity_id is required'}), 400
+            
+            # You'll need to get the job_id - this might come from the request data
+            # or you might need to look it up based on the entity_id
+            job_id = data.get('job_id')  # If provided in frontend
+            
+            if not job_id:
+                # Alternative: Look up job_id from the database based on entity_id
+                # This requires a query to find which job contains this entity
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                    SELECT job_id FROM results WHERE entity_id = ? LIMIT 1
+                    ''', (entity_id,))
+                    result = cursor.fetchone()
+                    if result:
+                        job_id = result['job_id']
+                    else:
+                        return jsonify({'error': 'Could not find job for this entity'}), 404
+            
+            # Use the existing approve_match method from ResultsManager
+            success = ResultsManager.approve_match(job_id, entity_id, match_id, approved)
+            
+            if success:
+                logger.info(f"Match {match_id} {'approved' if approved else 'rejected'} for entity {entity_id}")
+                return jsonify({
+                    'success': True,
+                    'message': f"Match {'approved' if approved else 'rejected'} successfully",
+                    'match_id': match_id,
+                    'entity_id': entity_id,
+                    'approved': approved
+                })
+            else:
+                return jsonify({'error': 'Failed to update match status'}), 500
+                
+        except Exception as e:
+            logger.error(f"Error approving match {match_id}: {e}")
+            return jsonify({'error': str(e)}), 500
 
 def get_status_message(job):
     """Generate human-readable status message for a job"""

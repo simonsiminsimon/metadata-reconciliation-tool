@@ -1155,7 +1155,7 @@
             <div class="pagination-controls">
                 {% if pagination %}
                     {% if pagination.has_prev %}
-                        <a href="{{ url_for('review_job', job_id=job.id, page=pagination.prev_num) }}" class="brutalist-btn pagination-btn">‹</a>
+                        <a href="{{ url_for('review', job_id=job.id, page=pagination.prev_num) }}" class="brutalist-btn pagination-btn">‹</a>
                     {% else %}
                         <button class="brutalist-btn pagination-btn" disabled>‹</button>
                     {% endif %}
@@ -1163,7 +1163,7 @@
                     <span class="pagination-info">Page {{ pagination.page }} of {{ pagination.pages }}</span>
                     
                     {% if pagination.has_next %}
-                        <a href="{{ url_for('review_job', job_id=job.id, page=pagination.next_num) }}" class="brutalist-btn pagination-btn">›</a>
+                        <a href="{{ url_for('review', job_id=job.id, page=pagination.next_num) }}" class="brutalist-btn pagination-btn">›</a>
                     {% else %}
                         <button class="brutalist-btn pagination-btn" disabled>›</button>
                     {% endif %}
@@ -1387,7 +1387,8 @@
             
             const requestData = {
                 entity_id: entityId,
-                approved: approve
+                approved: approve,
+                job_id: window.currentJobId
             };
             
             // Add CSRF token if available
@@ -1626,4 +1627,9 @@
         if (reviewManager) reviewManager.exportCurrentView(); 
     }
 </script>
+
+<script>
+window.currentJobId = "{{ job.id }}";  // Make job ID available to JavaScript
+</script>
+
 {% endblock %}
