@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
 import logging
+from .failsafe_wikidata_client import FailsafeWikidataClient
 
 # Import the new Wikidata client
 from .wikidata_cultural_client import (
@@ -217,7 +218,7 @@ class EnhancedReconciliationEngine:
         )
         
         # Cache the result
-        self.cache.put(entity.search_key, result)
+        self.cache.set(entity.search_key, result)
         
         # Update statistics
         self._stats['total_processed'] += 1

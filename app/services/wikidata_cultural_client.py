@@ -229,7 +229,7 @@ class CulturalHeritageWikidataClient:
                 self.stats['queries_made'] += 1
                 
                 # Use shorter timeout for first attempt
-                timeout = 30 if attempt == 0 else self.timeout
+                timeout = 5 if attempt == 0 else self.timeout
                 
                 response = self.session.get(
                     self.sparql_endpoint,
